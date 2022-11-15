@@ -1,13 +1,17 @@
 import json
-from typing import Dict
+import random
 
+from pathlib import Path
 import pandas as pd
 from pandas.api.types import is_string_dtype
 
-from sklearn.ensemble import RandomForestRegressor
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
+from typing import Dict
 
 
 def get_res_test_df(model, x_test, y_test) -> pd.DataFrame:
@@ -28,15 +32,61 @@ def get_res_test_df(model, x_test, y_test) -> pd.DataFrame:
     return res_test_df
 
 
-if __name__ == '__main__':
-    df = pd.read_csv('sk-data/full_data.csv')
+def get_random_color() -> str:
+    return "#" + ''.join([random.choice('ABCDEF0123456789') for i in range(6)])
 
-    corr_df = df.corr(numeric_only=True)
+
+def draw_group_info(df: pd.DataFrame, group_key: str, y_key: str, res_path: str):
+    random.seed(42)
+    row_num = 2
+    fig = make_subplots(
+        rows=row_num, cols=1,
+        vertical_spacing=0.5 / row_num
+    )
+    for group_val in df[group_key].unique():
+        curr_df = df[df[group_key] == group_val]
+        curr_color = get_random_color()
+        fig.add_trace(
+            go.Bar(
+                name=group_val,
+                legendgroup=group_val,
+                x=[group_val],
+                y=[len(curr_df)],
+                marker_color=curr_color
+            ),
+            row=1, col=1
+        )
+
+        fig.add_trace(
+            go.Box(
+                name=group_val,
+                legendgroup=group_val,
+                y=curr_df[y_key],
+                marker_color=curr_color
+            ),
+            row=2, col=1
+        )
+
+    fig.update_xaxes(tickangle=30)
+    fig.update_layout(title_text=f'mae percentage error grouped by {group_key}')
+    fig.show()
+
+
+if __name__ == '__main__':
+    ################################################
+    # ------------ data processing  ----------------
+    ################################################
+    src_df = pd.read_csv('sk-data/full_data.csv')
+
+    corr_df = src_df.corr(numeric_only=True)
     # corr_df['ElapsedRaw'].sort_values()
 
-    filt_df = df.dropna(axis=1)
+    filt_df = src_df.dropna(axis=1)
     filt_df = filt_df.drop(columns=['ElapsedRaw', 'ElapsedRaw_mean', 'ElapsedRawClass'])
     filt_df = filt_df[filt_df['CPUTimeRAW'] != 0]
+
+    # drop ids
+    # filt_df = filt_df.drop(columns=['JobID', 'Unnamed: 0'])
 
     le_dict: Dict[str, LabelEncoder] = {
         key: LabelEncoder() for key in filt_df.keys()
@@ -48,8 +98,11 @@ if __name__ == '__main__':
     for key, le in le_dict.items():
         x_all[key] = le.fit_transform(x_all[key])
 
-    x_train, x_test, y_train, y_test = train_test_split(x_all, y_all, test_size=0.33)
+    x_train, x_test, y_train, y_test = train_test_split(x_all, y_all, test_size=0.33, shuffle=True)
 
+    ################################################
+    # ------------ building models -----------------
+    ################################################
     res_list = []
 
     args_scenarios = [
@@ -60,9 +113,15 @@ if __name__ == '__main__':
             n_jobs=4,
             random_state=42
         )
-        for n_estimators in [10, 100, 500]
-        for min_samples_leaf in [1, 2, 4, 8]
-        for bootstrap in [True, False]
+        # # search
+        # for n_estimators in [10, 50, 150]
+        # for min_samples_leaf in [1, 2, 4]
+        # for bootstrap in [True, False]
+
+        # stable
+        for n_estimators in [50]
+        for min_samples_leaf in [1]
+        for bootstrap in [False]
     ]
 
     for i, args_dict in enumerate(args_scenarios):
@@ -84,3 +143,21 @@ if __name__ == '__main__':
                 'mae': mae
             }
         )
+
+    res_list_df = pd.DataFrame(res_list).sort_values('mae')
+
+    ################################################
+    # --- analyze model errors & dependencies  -----
+    ################################################
+    best_args = json.loads(res_list_df.iloc[0]['args_dict'])
+
+    rf = RandomForestRegressor(**best_args)
+    rf.fit(X=x_train, y=y_train)
+
+    imp_df = pd.DataFrame({'feature': x_test.keys(), 'imp': rf.feature_importances_}).sort_values('imp')
+
+    res_dir = Path('res')
+    res_dir.mkdir(exist_ok=True)
+
+    for group_key in le_dict.keys():
+        draw_group_info(df=src_df, group_key=group_key, y_key='TimelimitRaw', res_path='')
