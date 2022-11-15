@@ -11,7 +11,7 @@ from plotly.subplots import make_subplots
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from typing import Dict
+from typing import Dict, List
 
 
 def get_res_test_df(model, x_test, y_test) -> pd.DataFrame:
@@ -36,7 +36,7 @@ def get_random_color() -> str:
     return "#" + ''.join([random.choice('ABCDEF0123456789') for i in range(6)])
 
 
-def draw_group_info(df: pd.DataFrame, group_key: str, y_key: str, res_path: str):
+def draw_group_agg_info(df: pd.DataFrame, group_key: str, y_key: str, res_path: str):
     random.seed(42)
     row_num = 2
     fig = make_subplots(
@@ -69,31 +69,60 @@ def draw_group_info(df: pd.DataFrame, group_key: str, y_key: str, res_path: str)
 
     fig.update_xaxes(tickangle=30)
     fig.update_layout(title_text=f'mae percentage error grouped by {group_key}')
-    fig.show()
+
+    fig.write_html(res_path)
+    # fig.show()
+
+
+def draw_dependecies(df: pd.DataFrame, group_keys: List[str], y_key: str, res_dir: str):
+    Path(res_dir).mkdir(exist_ok=True)
+
+    for group_key in group_keys:
+        res_path = f'{res_dir}/{y_key}_agg_by_{group_key.replace(":", "")}.html'
+        print(f'drawing {res_path}')
+        draw_group_agg_info(df=df, group_key=group_key, y_key=y_key, res_path=res_path)
+
+
+class ExpDesc:
+    def __init__(self, src_file: str, y_key: str, ignored_keys: List[str]):
+        self.src_file = src_file
+        self.y_key = y_key
+        self.ignored_keys = ignored_keys
 
 
 if __name__ == '__main__':
     ################################################
     # ------------ data processing  ----------------
     ################################################
-    src_df = pd.read_csv('sk-data/full_data.csv')
+    exp_list = [
+        ExpDesc(src_file='sk-data/full_data.csv', y_key='CPUTimeRAW',
+                ignored_keys=['ElapsedRaw', 'ElapsedRaw_mean', 'ElapsedRawClass', 'Unnamed: 0']),
+        ExpDesc(src_file='sk-data/data.csv', y_key='ElapsedRaw',
+                ignored_keys=['ElapsedRaw_mean', 'ElapsedRawClass', 'Unnamed: 0'])
+
+    ]
+
+    exp_desc = exp_list[0]
+
+    src_df = pd.read_csv(exp_desc.src_file)
 
     corr_df = src_df.corr(numeric_only=True)
-    # corr_df['ElapsedRaw'].sort_values()
+
+    # get most correlated with target value columns
+    # corr_df[exp_desc.y_key].sort_values()
 
     filt_df = src_df.dropna(axis=1)
-    filt_df = filt_df.drop(columns=['ElapsedRaw', 'ElapsedRaw_mean', 'ElapsedRawClass'])
-    filt_df = filt_df[filt_df['CPUTimeRAW'] != 0]
+    filt_df = filt_df.drop(columns=exp_desc.ignored_keys)
 
-    # drop ids
-    # filt_df = filt_df.drop(columns=['JobID', 'Unnamed: 0'])
+    filt_df = filt_df[filt_df[exp_desc.y_key] != 0]
 
+    # initialize label encoders
     le_dict: Dict[str, LabelEncoder] = {
         key: LabelEncoder() for key in filt_df.keys()
         if is_string_dtype(filt_df[key])
     }
 
-    x_all, y_all = filt_df.drop(columns=['CPUTimeRAW']), filt_df['CPUTimeRAW']
+    x_all, y_all = filt_df.drop(columns=[exp_desc.y_key]), filt_df[exp_desc.y_key]
 
     for key, le in le_dict.items():
         x_all[key] = le.fit_transform(x_all[key])
@@ -156,8 +185,10 @@ if __name__ == '__main__':
 
     imp_df = pd.DataFrame({'feature': x_test.keys(), 'imp': rf.feature_importances_}).sort_values('imp')
 
-    res_dir = Path('res')
-    res_dir.mkdir(exist_ok=True)
+    res_test_df = get_res_test_df(model=rf, x_test=x_test, y_test=y_test)
 
-    for group_key in le_dict.keys():
-        draw_group_info(df=src_df, group_key=group_key, y_key='TimelimitRaw', res_path='')
+    for key, le in le_dict.items():
+        res_test_df[key] = le.inverse_transform(res_test_df[key])
+
+    draw_dependecies(df=src_df, group_keys=list(le_dict.keys()), y_key='TimelimitRaw', res_dir='src_deps')
+    draw_dependecies(df=res_test_df, group_keys=list(le_dict.keys()), y_key='mae perc', res_dir='test_error_deps')
