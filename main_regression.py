@@ -11,7 +11,7 @@ from sklearn.preprocessing import LabelEncoder
 from typing import Dict, List
 
 from drawing import draw_group_bars_and_boxes, draw_corr_sns, draw_pie_chart
-from models_building import get_predictions_and_residuals_df, build_scenarios
+from models_building import get_reg_predictions_and_metrics_df, build_scenarios
 
 
 def draw_bars_and_boxes_by_categories(df: pd.DataFrame, group_keys: List[str], y_key: str, res_dir: Path):
@@ -67,7 +67,7 @@ def get_time_range_symb(task_time: float) -> str:
     return 'undefined range'
 
 
-class ExpDesc:
+class ExpRegDesc:
     def __init__(self, res_dir: str, src_file: str, y_key: str, ignored_keys: List[str]):
         self.res_dir = Path(res_dir)
         self.src_file = src_file
@@ -80,15 +80,12 @@ if __name__ == '__main__':
     # ------------ exp descriptions  ---------------
     ################################################
     exp_list = [
-        ExpDesc(res_dir='full_cpu_time', src_file='sk-data/full_data.csv', y_key='CPUTimeRAW',
-                ignored_keys=['ElapsedRaw', 'ElapsedRaw_mean', 'ElapsedRawClass', 'Unnamed: 0']),
+        ExpRegDesc(res_dir='full_reg_cpu_time', src_file='sk-data/full_data.csv', y_key='CPUTimeRAW',
+                   ignored_keys=['ElapsedRaw', 'ElapsedRaw_mean', 'ElapsedRawClass', 'Unnamed: 0']),
 
-        ExpDesc(res_dir='full_elapsed_time', src_file='sk-data/full_data.csv',
-                y_key='ElapsedRaw',
-                ignored_keys=['CPUTimeRAW', 'ElapsedRaw_mean', 'ElapsedRawClass', 'Unnamed: 0']),
-
-        ExpDesc(res_dir='data', src_file='sk-data/data.csv', y_key='ElapsedRaw',
-                ignored_keys=['ElapsedRaw_mean', 'ElapsedRawClass', 'Unnamed: 0'])
+        ExpRegDesc(res_dir='full_reg_elapsed_time (new best)', src_file='sk-data/full_data.csv',
+                   y_key='ElapsedRaw',
+                   ignored_keys=['CPUTimeRAW', 'ElapsedRaw_mean', 'ElapsedRawClass', 'Unnamed: 0']),
 
     ]
 
@@ -131,27 +128,35 @@ if __name__ == '__main__':
     ################################################
     res_list_df = build_scenarios(
         x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
-        reg_method='rf',
-        le_dict=le_dict,
+        method='rf',
         args_scenarios=[
             dict(
                 n_estimators=n_estimators,
                 min_samples_leaf=min_samples_leaf,
                 bootstrap=bootstrap,
+                max_features=max_features,
                 n_jobs=4,
                 random_state=42
             )
             # # search
-            # for n_estimators in [10, 50, 150]
-            # for min_samples_leaf in [1, 2, 4]
-            # for bootstrap in [True, False]
+            for n_estimators in [10, 50, 150]
+            for min_samples_leaf in [1, 2, 4]
+            for bootstrap in [True, False]
+            for max_features in [1.0, 0.75, 0.5, 0.25]
 
             # stable
-            for n_estimators in [50]
-            for min_samples_leaf in [1]
-            for bootstrap in [False]
+            # for n_estimators in [50]
+            # for min_samples_leaf in [1]
+            # for bootstrap in [False]
+            # for max_features in [0.25]
         ]
     )
+
+    for key, le in le_dict.items():
+        res_list_df[key] = le.inverse_transform(res_list_df[key])
+
+    res_list_df.sort_values('mae', inplace=True)
+    res_list_df.to_csv(f'{exp_desc.res_dir}/res_last_search.csv')
 
     ################################################
     # --- analyze model errors & dependencies  -----
@@ -163,13 +168,16 @@ if __name__ == '__main__':
 
     imp_df = pd.DataFrame({'feature': x_test.keys(), 'imp': rf.feature_importances_}).sort_values('imp')
 
-    res_test_df = get_predictions_and_residuals_df(model=rf, X=x_test, y=y_test)
+    res_test_df = get_reg_predictions_and_metrics_df(model=rf, X=x_test, y=y_test)
 
     for key, le in le_dict.items():
         res_test_df[key] = le.inverse_transform(res_test_df[key])
 
     res_test_df['time_range'] = [get_time_range_symb(task_time=task_time)
                                  for task_time in list(res_test_df['y_true'])]
+
+    src_df['time_range'] = [get_time_range_symb(task_time=task_time)
+                            for task_time in list(src_df[exp_desc.y_key])]
 
     # bars & boxes
     draw_bars_and_boxes_by_categories(df=src_df, group_keys=list(le_dict.keys()), y_key=exp_desc.y_key,
@@ -182,9 +190,6 @@ if __name__ == '__main__':
     draw_correlations(res_test_df=res_test_df, res_dir=exp_desc.res_dir.joinpath('corr'))
 
     # pie chart dist
-    src_df['time_range'] = [get_time_range_symb(task_time=task_time)
-                            for task_time in list(src_df[exp_desc.y_key])]
-
     for pie_mode in ['sum', 'count']:
         draw_pie_chart(
             df=src_df,

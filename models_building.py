@@ -1,11 +1,15 @@
 import json
+import time
 from typing import List, Dict
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 
+from random_survival_forest.models import RandomSurvivalForest
+from random_survival_forest.scoring import concordance_index
 
-def get_predictions_and_residuals_df(model, X, y) -> pd.DataFrame:
+
+def get_reg_predictions_and_metrics_df(model, X, y) -> pd.DataFrame:
     res_test_df = pd.DataFrame(
         {
             'y_true': y,
@@ -23,38 +27,52 @@ def get_predictions_and_residuals_df(model, X, y) -> pd.DataFrame:
     return res_test_df
 
 
+def get_surv_c_val(model, X, y) -> float:
+    y_pred = model.predict(X=X)
+    c_val = concordance_index(y_time=y["ElapsedRaw"], y_pred=y_pred, y_event=y["event"])
+    return c_val
+
+
 def build_scenarios(
         x_train, y_train, x_test, y_test,
-        le_dict: Dict[str, LabelEncoder],
         args_scenarios: List[dict],
-        reg_method: str
+        method: str
 ) -> pd.DataFrame:
     res_list = []
 
     for i, args_dict in enumerate(args_scenarios):
         print(f'fitting scenario {i}/{len(args_scenarios)}')
 
-        if reg_method == 'rf':
-            rf = RandomForestRegressor(**args_dict)
+        if method == 'rf':
+            model = RandomForestRegressor(**args_dict)
+            model.fit(X=x_train, y=y_train)
+            res_test_df = get_reg_predictions_and_metrics_df(model=model, X=x_test, y=y_test)
+            mae = res_test_df['mae perc'].mean()
+            res_list.append(
+                {
+                    'args_dict': json.dumps(args_dict),
+                    'mae': mae
+                }
+            )
+
+        elif method == 'rsf':
+            model = RandomSurvivalForest(**args_dict)
+
+            start_time = time.time()
+            model.fit(x=x_train, y=y_train)
+            print(f"rsf fit time   = {time.time() - start_time}")
+
+            start_time = time.time()
+            c_val = get_surv_c_val(model=model, X=x_test, y=y_test)
+            print(f"rsf c-val time = {time.time() - start_time}")
+
+            res_list.append(
+                {
+                    'args_dict': json.dumps(args_dict),
+                    'c-val': c_val
+                }
+            )
         else:
-            raise Exception(f'Undefined reg methods = {reg_method}')
+            raise Exception(f'Undefined reg methods = {method}')
 
-        rf.fit(X=x_train, y=y_train)
-
-        res_test_df = get_predictions_and_residuals_df(model=rf, X=x_test, y=y_test)
-
-        for key, le in le_dict.items():
-            res_test_df[key] = le.inverse_transform(res_test_df[key])
-
-        mae = res_test_df['mae perc'].mean()
-
-        res_list.append(
-            {
-                'args_dict': json.dumps(args_dict),
-                'mae': mae
-            }
-        )
-
-    res_list_df = pd.DataFrame(res_list).sort_values('mae')
-
-    return res_list_df
+    return pd.DataFrame(res_list)
