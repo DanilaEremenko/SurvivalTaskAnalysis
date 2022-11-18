@@ -1,12 +1,8 @@
 import json
-import time
-from typing import List, Dict
+from typing import List
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import LabelEncoder
-
-from random_survival_forest.models import RandomSurvivalForest
-from random_survival_forest.scoring import concordance_index
+from sksurv.ensemble import RandomSurvivalForest
 
 
 def get_reg_predictions_and_metrics_df(model, X, y) -> pd.DataFrame:
@@ -25,12 +21,6 @@ def get_reg_predictions_and_metrics_df(model, X, y) -> pd.DataFrame:
     res_test_df['mae'] = res_test_df['residual'].abs()
     res_test_df['mae perc'] = res_test_df['residual perc'].abs()
     return res_test_df
-
-
-def get_surv_c_val(model, X, y) -> float:
-    y_pred = model.predict(X=X)
-    c_val = concordance_index(y_time=y["ElapsedRaw"], y_pred=y_pred, y_event=y["event"])
-    return c_val
 
 
 def build_scenarios(
@@ -57,14 +47,8 @@ def build_scenarios(
 
         elif method == 'rsf':
             model = RandomSurvivalForest(**args_dict)
-
-            start_time = time.time()
-            model.fit(x=x_train, y=y_train)
-            print(f"rsf fit time   = {time.time() - start_time}")
-
-            start_time = time.time()
-            c_val = get_surv_c_val(model=model, X=x_test, y=y_test)
-            print(f"rsf c-val time = {time.time() - start_time}")
+            model.fit(X=x_train, y=y_train)
+            c_val = model.score(X=x_test, y=y_test)
 
             res_list.append(
                 {

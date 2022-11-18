@@ -5,6 +5,7 @@ import pandas as pd
 from pandas.core.dtypes.common import is_string_dtype
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
+from sksurv.util import Surv
 
 from models_building import build_scenarios
 
@@ -89,8 +90,10 @@ if __name__ == '__main__':
     for key, le in le_dict.items():
         x_all[key] = le.fit_transform(x_all[key])
 
+    y_all_tr = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_all)
+
     x_train, x_test, y_train, y_test = train_test_split(
-        x_all, y_all, test_size=0.33,
+        x_all, y_all_tr, test_size=0.33,
         # shuffle=True
     )
 
@@ -103,15 +106,17 @@ if __name__ == '__main__':
         args_scenarios=[
             dict(
                 n_estimators=n_estimators,
-                min_leaf=min_leaf,
-                unique_deaths=unique_deaths,
+                min_samples_leaf=min_samples_leaf,
+                bootstrap=bootstrap,
+                max_features=max_features,
                 n_jobs=4,
                 random_state=42
             )
             # # search
             for n_estimators in [10, 50, 150]
-            for min_leaf in [1, 2, 4]
-            for unique_deaths in [1, 2, 4]
+            for min_samples_leaf in [1, 2, 4]
+            for bootstrap in [True, False]
+            for max_features in [1.0, 0.75, 0.5, 0.25]
 
             # stable
             # for n_estimators in [50]
