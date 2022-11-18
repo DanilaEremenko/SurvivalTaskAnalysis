@@ -1,34 +1,39 @@
-from lifelines import datasets
+from typing import Dict
+
 import numpy as np
+from pandas.core.dtypes.common import is_string_dtype, is_categorical_dtype
 from sklearn.model_selection import train_test_split
-import time
-from random_survival_forest.models import RandomSurvivalForest
+from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 
-rossi = datasets.load_rossi()
+from sksurv.datasets import load_gbsg2
+from sksurv.ensemble import RandomSurvivalForest
 
-# Attention: duration column must be index 0, event column index 1 in y
-y = rossi.loc[:, ["arrest", "week"]]
-X = rossi.drop(["arrest", "week"], axis=1)
-X, X_test, y, y_test = train_test_split(X, y, test_size=0.33, random_state=10)
+x_all, y_all = load_gbsg2()
 
-print("Start training...")
-start_time = time.time()
-rsf = RandomSurvivalForest(n_estimators=10, n_jobs=-1, random_state=10)
-rsf = rsf.fit(X, y)
-print(f'--- {round(time.time() - start_time, 3)} seconds ---')
+grade_str = x_all.loc[:, "tgrade"].astype(object).values[:, np.newaxis]
+grade_num = OrdinalEncoder(categories=[["I", "II", "III"]]).fit_transform(grade_str)
 
-# ----------------------------------------------------------------
-from random_survival_forest.scoring import concordance_index as concordance_index_rsf
+x_all = x_all.drop("tgrade", axis=1)
 
-y_pred = rsf.predict(X_test)
-c_val = concordance_index_rsf(y_time=y_test["week"], y_pred=y_pred, y_event=y_test["arrest"])
-print(f'C-index rsf metric {round(c_val, 3)}')
+le_dict: Dict[str, LabelEncoder] = {
+    key: LabelEncoder() for key in x_all.keys()
+    if is_string_dtype(x_all[key]) or is_categorical_dtype(x_all[key])
 
-# ----------------------------------------------------------------
-# from lifelines.utils import concordance_index as concordance_index_lf
-#
-# y_pred_form = [list(pred.index)[list(pred).index(max(pred))] for pred in y_pred]
-# c_val = concordance_index_lf(y_test["week"], y_pred_form)
-# print(f'C-index lifelines metric {round(c_val, 3)}')
-# residuals = np.array(y_pred_form) - y_test["week"]
-# print(f'Mean week error = {round(np.abs(residuals).mean(), 2)}')
+}
+
+for key, le in le_dict.items():
+    x_all[key] = le.fit_transform(x_all[key])
+
+rsf = RandomSurvivalForest(
+    n_estimators=10,
+    min_samples_split=10,
+    min_samples_leaf=15,
+    n_jobs=4,
+    random_state=42
+)
+
+x_train, x_test, y_train, y_test = train_test_split(x_all, y_all, test_size=0.25)
+
+rsf.fit(x_train, y_train)
+
+rsf.score(x_test, y_test)
