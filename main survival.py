@@ -2,8 +2,10 @@ import time
 from pathlib import Path
 from typing import List, Dict
 
+import matplotlib.pyplot as plt
 import pandas as pd
 from pandas.core.dtypes.common import is_string_dtype
+from sklearn.inspection import permutation_importance
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sksurv.ensemble import RandomSurvivalForest
@@ -49,7 +51,7 @@ if __name__ == '__main__':
             y_key='ElapsedRaw',
             event_key='event',
             translate_func=translate_func_simple,
-            ignored_keys=['CPUTimeRAW', 'ElapsedRaw_mean', 'Unnamed: 0', 'State', 'MinMemoryNode']
+            ignored_keys=['CPUTimeRAW', 'ElapsedRaw_mean', 'ElapsedRawClass', 'Unnamed: 0', 'State', 'MinMemoryNode']
         )
     ]
 
@@ -93,15 +95,16 @@ if __name__ == '__main__':
     for key, le in le_dict.items():
         x_all[key] = le.fit_transform(x_all[key])
 
-    y_all_tr = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_all)
-
     # x_all = x_all.iloc[:1_000]
     # y_all_tr = y_all_tr[:1_000]
 
-    x_train, x_test, y_train, y_test = train_test_split(
-        x_all, y_all_tr, test_size=0.40,
+    x_train, x_test, y_train_src, y_test_src = train_test_split(
+        x_all, y_all, test_size=0.40,
         # shuffle=True
     )
+
+    y_train = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_train_src)
+    y_test = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_test_src)
 
     # ################################################
     # -------------- search params -------------------
@@ -157,7 +160,7 @@ if __name__ == '__main__':
     # print(f'fit time = {time.time() - start_fit_time}')
     #
     # score_time_list = []
-    # for samples_num in [2500, 5000, 10_000, 20_000, 40_000]:
+    # for samples_num in [2500, 5000, 10_000, 20_000]:
     #     start_score_time = time.time()
     #     score = rsf.score(X=x_test.iloc[0:samples_num], y=y_test[0:samples_num])
     #     score_time_list.append(
@@ -171,23 +174,29 @@ if __name__ == '__main__':
     #
     # score_time_df = pd.DataFrame(score_time_list)
     #
-    # dump(rsf, f'{exp_desc.res_dir}/model.joblib')
+    # dump(rsf, f'{exp_desc.res_dir}/model_fair.joblib')
 
     # ################################################
     # -------------- upload model --------------------
     # ################################################
-    rsf = load(f'{exp_desc.res_dir}/model.joblib')
+    rsf = load(f'{exp_desc.res_dir}/model_fair.joblib')
 
-    x_test_sorted = x_test.sort_values('TimelimitRaw')
-    x_test_sel = pd.concat((x_test_sorted.iloc[:3], x_test_sorted.iloc[-3:]))
+    y_test_src_sorted = y_test_src.sort_values('ElapsedRaw')
+    y_test_src_sel = pd.concat([y_test_src_sorted.iloc[:3], y_test_src_sorted.iloc[-3:]])
+    x_test_sel = x_test.loc[y_test_src_sel.index]
+    y_test_sel = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_test_src_sel)
 
     surv = rsf.predict_survival_function(x_test_sel, return_array=True)
-
-    import matplotlib.pyplot as plt
-
     for i, s in enumerate(surv):
         plt.step(rsf.event_times_, s, where="post", label=str(i))
     plt.ylabel("Survival probability")
-    plt.xlabel("Time in days")
+    plt.xlabel("Time in seconds")
     plt.legend()
     plt.grid(True)
+    plt.show()
+
+    imps_raw = permutation_importance(rsf, x_test_sel, y_test_sel, n_repeats=15, random_state=42)
+    imps_df = pd.DataFrame(
+        {k: imps_raw[k] for k in ("importances_mean", "importances_std",)},
+        index=x_test_sel.columns
+    ).sort_values(by="importances_mean", ascending=False)
