@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from typing import List, Dict
 
@@ -5,7 +6,9 @@ import pandas as pd
 from pandas.core.dtypes.common import is_string_dtype
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
+from sksurv.ensemble import RandomSurvivalForest
 from sksurv.util import Surv
+from joblib import dump, load
 
 from models_building import build_scenarios
 
@@ -92,42 +95,99 @@ if __name__ == '__main__':
 
     y_all_tr = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_all)
 
+    # x_all = x_all.iloc[:1_000]
+    # y_all_tr = y_all_tr[:1_000]
+
     x_train, x_test, y_train, y_test = train_test_split(
-        x_all, y_all_tr, test_size=0.33,
+        x_all, y_all_tr, test_size=0.40,
         # shuffle=True
     )
 
     # ################################################
-    # # ------------ building models -----------------
+    # -------------- search params -------------------
     # ################################################
-    res_list_df = build_scenarios(
-        x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
-        method='rsf',
-        args_scenarios=[
-            dict(
-                n_estimators=n_estimators,
-                min_samples_leaf=min_samples_leaf,
-                bootstrap=bootstrap,
-                max_features=max_features,
-                n_jobs=4,
-                random_state=42
-            )
-            # # search
-            for n_estimators in [10, 50, 150]
-            for min_samples_leaf in [1, 2, 4]
-            for bootstrap in [True, False]
-            for max_features in [1.0, 0.75, 0.5, 0.25]
+    # res_list_df = build_scenarios(
+    #     x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
+    #     method='rsf',
+    #     args_scenarios=[
+    #         dict(
+    #             n_estimators=n_estimators,
+    #             min_samples_leaf=min_samples_leaf,
+    #             bootstrap=bootstrap,
+    #             max_features=max_features,
+    #             n_jobs=4,
+    #             random_state=42
+    #         )
+    #         # # search
+    #         for n_estimators in [10, 50, 150]
+    #         for min_samples_leaf in [1, 2, 4]
+    #         for bootstrap in [True, False]
+    #         for max_features in [1.0, 0.75, 0.5, 0.25]
+    #
+    #         # stable
+    #         # for n_estimators in [100]
+    #         # for min_samples_leaf in [4]
+    #         # for bootstrap in [True]
+    #         # for max_features in [1.]
+    #     ]
+    # )
+    #
+    # for key, le in le_dict.items():
+    #     res_list_df[key] = le.inverse_transform(res_list_df[key])
+    #
+    # res_list_df.sort_values('c-val', inplace=True)
+    # res_list_df.to_csv(f'{exp_desc.res_dir}/res_last_search.csv')
 
-            # stable
-            # for n_estimators in [50]
-            # for min_samples_leaf in [1]
-            # for bootstrap in [False]
-            # for max_features in [0.25]
-        ]
-    )
+    # ################################################
+    # -------------- fit minimal params --------------
+    # ################################################
+    # rf = RandomSurvivalForest(n_estimators=100, min_samples_leaf=4, bootstrap=True, max_features=1.)
+    # rsf = RandomSurvivalForest(
+    #     n_estimators=10,
+    #     min_samples_leaf=4,
+    #     bootstrap=True,
+    #     max_features=1.,
+    #     max_samples=10_000,
+    #     random_state=4, n_jobs=4
+    # )
+    # print("fit best params..")
+    #
+    # start_fit_time = time.time()
+    # rsf.fit(X=x_train, y=y_train)
+    # print(f'fit time = {time.time() - start_fit_time}')
+    #
+    # score_time_list = []
+    # for samples_num in [2500, 5000, 10_000, 20_000, 40_000]:
+    #     start_score_time = time.time()
+    #     score = rsf.score(X=x_test.iloc[0:samples_num], y=y_test[0:samples_num])
+    #     score_time_list.append(
+    #         {
+    #             'score': score,
+    #             'samples_num': samples_num,
+    #             'time': time.time() - start_score_time
+    #         }
+    #     )
+    #     print(score_time_list[-1])
+    #
+    # score_time_df = pd.DataFrame(score_time_list)
+    #
+    # dump(rsf, f'{exp_desc.res_dir}/model.joblib')
 
-    for key, le in le_dict.items():
-        res_list_df[key] = le.inverse_transform(res_list_df[key])
+    # ################################################
+    # -------------- upload model --------------------
+    # ################################################
+    rsf = load(f'{exp_desc.res_dir}/model.joblib')
 
-    res_list_df.sort_values('c-val', inplace=True)
-    res_list_df.to_csv(f'{exp_desc.res_dir}/res_last_search.csv')
+    x_test_sorted = x_test.sort_values('TimelimitRaw')
+    x_test_sel = pd.concat((x_test_sorted.iloc[:3], x_test_sorted.iloc[-3:]))
+
+    surv = rsf.predict_survival_function(x_test_sel, return_array=True)
+
+    import matplotlib.pyplot as plt
+
+    for i, s in enumerate(surv):
+        plt.step(rsf.event_times_, s, where="post", label=str(i))
+    plt.ylabel("Survival probability")
+    plt.xlabel("Time in days")
+    plt.legend()
+    plt.grid(True)
