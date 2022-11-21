@@ -47,11 +47,16 @@ if __name__ == '__main__':
     ################################################
     exp_list = [
         ExpSurvDesc(
-            res_dir='full_surv_elapsed_time (simple)', src_file='sk-full-data/full_data.csv',
+            res_dir='full_surv_elapsed_time (simple super fair)', src_file='sk-full-data/full_data.csv',
             y_key='ElapsedRaw',
             event_key='event',
             translate_func=translate_func_simple,
-            ignored_keys=['CPUTimeRAW', 'ElapsedRaw_mean', 'ElapsedRawClass', 'Unnamed: 0', 'State', 'MinMemoryNode']
+            ignored_keys=[
+                'CPUTimeRAW', 'ElapsedRaw_mean', 'ElapsedRaw_std', 'ElapsedRawClass',
+                'SizeClass',
+                'AveCPU', 'AveCPU_mean', 'AveCPU_std',
+                'Unnamed: 0', 'State', 'MinMemoryNode'
+            ]
         )
     ]
 
@@ -79,7 +84,9 @@ if __name__ == '__main__':
     # corr_df[exp_desc.y_key].sort_values()
 
     filt_df = filt_df.dropna(axis=1)
-    filt_df = filt_df.drop(columns=exp_desc.ignored_keys)
+    filt_ignored_keys = [key for key in exp_desc.ignored_keys if key in filt_df.keys()]
+
+    filt_df = filt_df.drop(columns=filt_ignored_keys)
 
     filt_df = filt_df[filt_df[exp_desc.y_key] != 0]
 
@@ -160,7 +167,7 @@ if __name__ == '__main__':
     # print(f'fit time = {time.time() - start_fit_time}')
     #
     # score_time_list = []
-    # for samples_num in [2500, 5000, 10_000, 20_000]:
+    # for samples_num in [2500, 5000, 10_000]:
     #     start_score_time = time.time()
     #     score = rsf.score(X=x_test.iloc[0:samples_num], y=y_test[0:samples_num])
     #     score_time_list.append(
@@ -174,12 +181,12 @@ if __name__ == '__main__':
     #
     # score_time_df = pd.DataFrame(score_time_list)
     #
-    # dump(rsf, f'{exp_desc.res_dir}/model_fair.joblib')
+    # dump(rsf, f'{exp_desc.res_dir}/model.joblib')
 
     # ################################################
     # -------------- upload model --------------------
     # ################################################
-    rsf = load(f'{exp_desc.res_dir}/model_fair.joblib')
+    rsf = load(f'{exp_desc.res_dir}/model.joblib')
 
     y_test_src_sorted = y_test_src.sort_values('ElapsedRaw')
     y_test_src_sel = pd.concat([y_test_src_sorted.iloc[:3], y_test_src_sorted.iloc[-3:]])
