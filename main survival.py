@@ -84,8 +84,8 @@ if __name__ == '__main__':
     # corr_df[exp_desc.y_key].sort_values()
 
     filt_df = filt_df.dropna(axis=1)
-    filt_ignored_keys = [key for key in exp_desc.ignored_keys if key in filt_df.keys()]
 
+    filt_ignored_keys = [key for key in exp_desc.ignored_keys if key in filt_df.keys()]
     filt_df = filt_df.drop(columns=filt_ignored_keys)
 
     filt_df = filt_df[filt_df[exp_desc.y_key] != 0]
@@ -189,8 +189,13 @@ if __name__ == '__main__':
     rsf = load(f'{exp_desc.res_dir}/model.joblib')
 
     y_test_src_sorted = y_test_src.sort_values('ElapsedRaw')
-    y_test_src_sel = pd.concat([y_test_src_sorted.iloc[:3], y_test_src_sorted.iloc[-3:]])
+    # y_test_src_sel = pd.concat([y_test_src_sorted.iloc[:3], y_test_src_sorted.iloc[-3:]])
+    y_test_src_sel = y_test_src_sorted[
+                         (y_test_src_sorted['ElapsedRaw'] > 1e4) & (y_test_src_sorted['ElapsedRaw'] < 1e5)
+                         ].iloc[0:10]
+
     x_test_sel = x_test.loc[y_test_src_sel.index]
+    y_test_src_sel.loc[0, 'event'] = 0  # TODO great bone
     y_test_sel = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_test_src_sel)
 
     surv = rsf.predict_survival_function(x_test_sel, return_array=True)
