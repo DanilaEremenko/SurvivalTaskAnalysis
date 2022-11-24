@@ -195,8 +195,11 @@ if __name__ == '__main__':
                          ].iloc[0:10]
 
     x_test_sel = x_test.loc[y_test_src_sel.index]
-    y_test_src_sel.loc[0, 'event'] = 0  # TODO great bone
+    # TODO great bone cause Surv.from_dataframe don't allow to pass elements without 0 event
+    saved_event = y_test_src_sel.loc[y_test_src_sel.index[0], 'event']
+    y_test_src_sel.loc[y_test_src_sel.index[0], 'event'] = 0
     y_test_sel = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_test_src_sel)
+    y_test_sel[0][0] = saved_event
 
     surv = rsf.predict_survival_function(x_test_sel, return_array=True)
     for i, s in enumerate(surv):
