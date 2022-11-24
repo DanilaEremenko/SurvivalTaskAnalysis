@@ -18,20 +18,21 @@ time_elapsed_agg_df = pd.DataFrame([
     for tr in src_df['time_elapsed_range'].unique()]
 ).sort_values('percent_time', ascending=False)
 
+SUMMARY_GAP = (src_df['TimelimitRaw'] - src_df['ElapsedRaw']).sum()
+SUMMARY_ELAPSED = src_df['ElapsedRaw'].sum()
+
 time_limit_agg_df = []
 for tr_elapsed in src_df['time_elapsed_range'].unique():
     curr_el_df = src_df[src_df['time_elapsed_range'] == tr_elapsed]
     for tr_limit in src_df['time_limit_range'].unique():
         curr_el_limit_df = curr_el_df[curr_el_df['time_limit_range'] == tr_limit]
+        curr_gap = (curr_el_limit_df['TimelimitRaw'] - curr_el_limit_df['ElapsedRaw']).sum()
         time_limit_agg_df.append(
             {
                 'y_true': tr_elapsed,
                 'y_predicted': tr_limit,
-                'percent_tasks': len(curr_el_limit_df) / len(curr_el_df),
-                # TODO what's wrong here, numbers are more than one
-                'lossed_of_all': (curr_el_limit_df['TimelimitRaw'] - curr_el_limit_df['ElapsedRaw']).sum()
-                                 / src_df['ElapsedRaw'].sum()
-
+                'tasks (%)': len(curr_el_limit_df) / len(curr_el_df),
+                'gap (%)': curr_gap / SUMMARY_GAP * 100
             }
         )
 
