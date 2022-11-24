@@ -12,6 +12,7 @@ from typing import Dict, List
 
 from drawing import draw_group_bars_and_boxes, draw_corr_sns, draw_pie_chart
 from models_building import get_reg_predictions_and_metrics_df, build_scenarios
+from time_ranges import get_time_range_symb
 
 
 def draw_bars_and_boxes_by_categories(df: pd.DataFrame, group_keys: List[str], y_key: str, res_dir: Path):
@@ -46,27 +47,6 @@ def draw_correlations(res_test_df: pd.DataFrame, res_dir: Path):
         )
 
 
-TIME_RANGES = {
-    '1 (0  - 3   minutes)': (timedelta(minutes=0), timedelta(minutes=3)),
-    '2 (3  - 10  minutes)': (timedelta(minutes=3), timedelta(minutes=10)),
-    '3 (10 - 60  minutes)': (timedelta(minutes=10), timedelta(hours=1)),
-    '4 (1  - 24  hours  )': (timedelta(hours=1), timedelta(days=1)),
-    '5 (1  - 3   days   )': (timedelta(days=1), timedelta(days=3)),
-    '6 (3  - inf days   )': (timedelta(days=3), timedelta(days=1e5)),
-}
-
-TIME_RANGES = {key: (time_range[0].total_seconds(), time_range[1].total_seconds())
-               for key, time_range in TIME_RANGES.items()}
-
-
-def get_time_range_symb(task_time: float) -> str:
-    for key, time_range in TIME_RANGES.items():
-        if time_range[0] < task_time < time_range[1]:
-            return key
-
-    return 'undefined range'
-
-
 class ExpRegDesc:
     def __init__(self, res_dir: str, src_file: str, y_key: str, ignored_keys: List[str]):
         self.res_dir = Path(res_dir)
@@ -83,9 +63,14 @@ if __name__ == '__main__':
         ExpRegDesc(res_dir='full_reg_cpu_time', src_file='sk-data/full_data.csv', y_key='CPUTimeRAW',
                    ignored_keys=['ElapsedRaw', 'ElapsedRaw_mean', 'ElapsedRawClass', 'Unnamed: 0']),
 
-        ExpRegDesc(res_dir='full_reg_elapsed_time (new best)', src_file='sk-data/full_data.csv',
+        ExpRegDesc(res_dir='full_reg_elapsed_time (super fair)', src_file='sk-data/full_data.csv',
                    y_key='ElapsedRaw',
-                   ignored_keys=['CPUTimeRAW', 'ElapsedRaw_mean', 'ElapsedRawClass', 'Unnamed: 0']),
+                   ignored_keys=[
+                       'CPUTimeRAW', 'ElapsedRaw_mean', 'ElapsedRaw_std', 'ElapsedRawClass',
+                       'SizeClass',
+                       'AveCPU', 'AveCPU_mean', 'AveCPU_std',
+                       'Unnamed: 0', 'State', 'MinMemoryNode'
+                   ]),
 
     ]
 
@@ -103,7 +88,9 @@ if __name__ == '__main__':
     # corr_df[exp_desc.y_key].sort_values()
 
     filt_df = src_df.dropna(axis=1)
-    filt_df = filt_df.drop(columns=exp_desc.ignored_keys)
+
+    filt_ignored_keys = [key for key in exp_desc.ignored_keys if key in filt_df.keys()]
+    filt_df = filt_df.drop(columns=filt_ignored_keys)
 
     filt_df = filt_df[filt_df[exp_desc.y_key] != 0]
 
@@ -139,16 +126,16 @@ if __name__ == '__main__':
                 random_state=42
             )
             # # search
-            for n_estimators in [10, 50, 150]
-            for min_samples_leaf in [1, 2, 4]
-            for bootstrap in [True, False]
-            for max_features in [1.0, 0.75, 0.5, 0.25]
+            # for n_estimators in [10, 50, 150]
+            # for min_samples_leaf in [1, 2, 4]
+            # for bootstrap in [True, False]
+            # for max_features in [1.0, 0.75, 0.5, 0.25]
 
             # stable
-            # for n_estimators in [50]
-            # for min_samples_leaf in [1]
-            # for bootstrap in [False]
-            # for max_features in [0.25]
+            for n_estimators in [50]
+            for min_samples_leaf in [1]
+            for bootstrap in [False]
+            for max_features in [0.25]
         ]
     )
 
