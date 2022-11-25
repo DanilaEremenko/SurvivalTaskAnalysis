@@ -3,10 +3,10 @@ from pathlib import Path
 from typing import List, Dict
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from pandas.core.dtypes.common import is_string_dtype
 from sklearn.inspection import permutation_importance
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sksurv.ensemble import RandomSurvivalForest
 from sksurv.util import Surv
@@ -27,18 +27,18 @@ class ExpSurvDesc:
     def __init__(
             self,
             res_dir: str,
-            src_file: str,
+            train_file: str,
+            test_file: str,
             y_key: str,
             event_key: str,
-            translate_func,
-            ignored_keys: List[str]
+            translate_func
     ):
         self.res_dir = Path(res_dir)
-        self.src_file = src_file
+        self.train_file = train_file
+        self.test_file = test_file
         self.y_key = y_key
         self.event_key = event_key
         self.translate_func = translate_func
-        self.ignored_keys = ignored_keys
 
 
 if __name__ == '__main__':
@@ -47,16 +47,12 @@ if __name__ == '__main__':
     ################################################
     exp_list = [
         ExpSurvDesc(
-            res_dir='full_surv_elapsed_time (simple super fair)', src_file='sk-full-data/full_data.csv',
+            res_dir='full_surv_elapsed_time (simple super fair)',
+            test_file='sk-full-data/fair_ds/train.csv',
+            train_file='sk-full-data/fair_ds/test.csv',
             y_key='ElapsedRaw',
             event_key='event',
-            translate_func=translate_func_simple,
-            ignored_keys=[
-                'CPUTimeRAW', 'ElapsedRaw_mean', 'ElapsedRaw_std', 'ElapsedRawClass',
-                'SizeClass',
-                'AveCPU', 'AveCPU_mean', 'AveCPU_std',
-                'Unnamed: 0', 'State', 'MinMemoryNode'
-            ]
+            translate_func=translate_func_simple
         )
     ]
 
@@ -66,8 +62,19 @@ if __name__ == '__main__':
     ################################################
     # ------------ data processing  ----------------
     ################################################
-    src_df = pd.read_csv(exp_desc.src_file)
-    filt_df = exp_desc.translate_func(src_df)
+    src_df = pd.read_csv('sk-full-data/full_data.csv')
+    train_df = pd.read_csv(exp_desc.train_file, index_col=0)
+    test_df = pd.read_csv(exp_desc.test_file, index_col=0)
+
+    # State is neccessary for event formation
+    train_df = pd.merge(left=train_df, right=src_df[['State']], left_index=True, right_index=True)
+    test_df = pd.merge(left=test_df, right=src_df[['State']], left_index=True, right_index=True)
+
+    train_df = exp_desc.translate_func(train_df)
+    test_df = exp_desc.translate_func(test_df)
+
+    train_df.drop(columns=['State'], inplace=True)
+    test_df.drop(columns=['State'], inplace=True)
 
     # state_dist = pd.DataFrame([
     #     {
@@ -78,37 +85,24 @@ if __name__ == '__main__':
     #     for state in src_df['State'].unique()]
     # )
 
-    corr_df = src_df.corr(numeric_only=True)
-
-    # get most correlated with target value columns
-    # corr_df[exp_desc.y_key].sort_values()
-
-    filt_df = filt_df.dropna(axis=1)
-
-    filt_ignored_keys = [key for key in exp_desc.ignored_keys if key in filt_df.keys()]
-    filt_df = filt_df.drop(columns=filt_ignored_keys)
-
-    filt_df = filt_df[filt_df[exp_desc.y_key] != 0]
-
-    # # initialize label encoders
+    # initialize label encoders
     le_dict: Dict[str, LabelEncoder] = {
-        key: LabelEncoder() for key in filt_df.keys()
-        if is_string_dtype(filt_df[key])
+        key: LabelEncoder() for key in train_df.keys()
+        if is_string_dtype(train_df[key])
     }
 
-    x_all = filt_df.drop(columns=[exp_desc.y_key, exp_desc.event_key])
-    y_all = filt_df[[exp_desc.y_key, exp_desc.event_key]]
+    x_train = train_df.drop(columns=[exp_desc.y_key, exp_desc.event_key])
+    y_train_src = train_df[[exp_desc.y_key, exp_desc.event_key]]
+
+    x_test = test_df.drop(columns=[exp_desc.y_key, exp_desc.event_key])
+    y_test_src = test_df[[exp_desc.y_key, exp_desc.event_key]]
 
     for key, le in le_dict.items():
-        x_all[key] = le.fit_transform(x_all[key])
+        x_train[key] = le.fit_transform(x_train[key])
+        x_test[key] = le.fit_transform(x_test[key])
 
     # x_all = x_all.iloc[:1_000]
     # y_all_tr = y_all_tr[:1_000]
-
-    x_train, x_test, y_train_src, y_test_src = train_test_split(
-        x_all, y_all, test_size=0.40,
-        # shuffle=True
-    )
 
     y_train = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_train_src)
     y_test = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_test_src)
@@ -151,7 +145,6 @@ if __name__ == '__main__':
     # ################################################
     # -------------- fit minimal params --------------
     # ################################################
-    # rf = RandomSurvivalForest(n_estimators=100, min_samples_leaf=4, bootstrap=True, max_features=1.)
     # rsf = RandomSurvivalForest(
     #     n_estimators=10,
     #     min_samples_leaf=4,
@@ -186,32 +179,35 @@ if __name__ == '__main__':
     # ################################################
     # -------------- upload model --------------------
     # ################################################
-    rsf = load(f'{exp_desc.res_dir}/model.joblib')
-
-    y_test_src_sorted = y_test_src.sort_values('ElapsedRaw')
-    # y_test_src_sel = pd.concat([y_test_src_sorted.iloc[:3], y_test_src_sorted.iloc[-3:]])
-    y_test_src_sel = y_test_src_sorted[
-                         (y_test_src_sorted['ElapsedRaw'] > 1e4) & (y_test_src_sorted['ElapsedRaw'] < 1e5)
-                         ].iloc[0:10]
-
-    x_test_sel = x_test.loc[y_test_src_sel.index]
-    # TODO great bone cause Surv.from_dataframe don't allow to pass elements without 0 event
-    saved_event = y_test_src_sel.loc[y_test_src_sel.index[0], 'event']
-    y_test_src_sel.loc[y_test_src_sel.index[0], 'event'] = 0
-    y_test_sel = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_test_src_sel)
-    y_test_sel[0][0] = saved_event
-
-    surv = rsf.predict_survival_function(x_test_sel, return_array=True)
-    for i, s in enumerate(surv):
-        plt.step(rsf.event_times_, s, where="post", label=str(i))
-    plt.ylabel("Survival probability")
-    plt.xlabel("Time in seconds")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-    imps_raw = permutation_importance(rsf, x_test_sel, y_test_sel, n_repeats=15, random_state=42)
-    imps_df = pd.DataFrame(
-        {k: imps_raw[k] for k in ("importances_mean", "importances_std",)},
-        index=x_test_sel.columns
-    ).sort_values(by="importances_mean", ascending=False)
+    # rsf = load(f'{exp_desc.res_dir}/model.joblib')
+    #
+    # y_test_src_sorted = y_test_src.sort_values('ElapsedRaw')
+    # # y_test_src_sel = pd.concat([y_test_src_sorted.iloc[:3], y_test_src_sorted.iloc[-3:]])
+    # y_test_src_sel = y_test_src_sorted[
+    #                      (y_test_src_sorted['ElapsedRaw'] > 1e4) & (y_test_src_sorted['ElapsedRaw'] < 1e5)
+    #                      ].iloc[0:10]
+    #
+    # x_test_sel = x_test.loc[y_test_src_sel.index]
+    # # TODO great bone cause Surv.from_dataframe don't allow to pass elements without 0 event
+    # saved_event = y_test_src_sel.loc[y_test_src_sel.index[0], 'event']
+    # y_test_src_sel.loc[y_test_src_sel.index[0], 'event'] = 0
+    # y_test_sel = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_test_src_sel)
+    # y_test_sel[0][0] = saved_event
+    #
+    # surv = rsf.predict_survival_function(x_test_sel, return_array=True)
+    # for i, s in enumerate(surv):
+    #     plt.step(rsf.event_times_, s, where="post", label=str(i))
+    # plt.ylabel("Survival probability")
+    # plt.xlabel("Time in seconds")
+    # plt.legend()
+    # plt.grid(True)
+    # plt.show()
+    #
+    # imps_raw = permutation_importance(rsf, x_test_sel, y_test_sel, n_repeats=15, random_state=42)
+    # imps_df = pd.DataFrame(
+    #     {k: imps_raw[k] for k in ("importances_mean", "importances_std",)},
+    #     index=x_test_sel.columns
+    # ).sort_values(by="importances_mean", ascending=False)
+    # y_pred = pd.DataFrame({'y_pred': np.concatenate([rsf.predict(x_test[start:start + 200])
+    #                                                  for start in range(0, len(x_test), 200)])})
+    # y_pred.to_csv('sk-full-data/fair_ds/y_pred_surv.csv', index=False)
