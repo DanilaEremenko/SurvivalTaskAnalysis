@@ -1,4 +1,6 @@
 from pathlib import Path
+from typing import Optional
+
 import plotly.express as px
 import pandas as pd
 import seaborn as sns
@@ -54,9 +56,10 @@ def draw_group_bars_and_boxes(df: pd.DataFrame, group_key: str, y_key: str, res_
 
 
 def draw_corr_sns(group_df: pd.DataFrame, x_key: str, y_key: str, x_title: str, y_title: str,
-                  add_rmse: bool, add_mae: bool, add_mae_perc: bool, kind: str, res_dir: Path, title: str,
+                  add_rmse: bool, add_mae: bool, add_mae_perc: bool, kind: str, res_dir: Optional[Path], title: str,
                   add_bounds=False):
-    res_dir.mkdir(exist_ok=True, parents=True)
+    if res_dir is not None:
+        res_dir.mkdir(exist_ok=True, parents=True)
     print(f"drawing jointplot {res_dir}")
     jp = sns.jointplot(data=group_df, x=x_key, y=y_key, kind=kind)
     jp.set_axis_labels(x_title, y_title, fontsize=16)
@@ -67,8 +70,8 @@ def draw_corr_sns(group_df: pd.DataFrame, x_key: str, y_key: str, x_title: str, 
     mae_perc = ((group_df[x_key] - group_df[y_key]).abs() / group_df[x_key]).mean() * 100
 
     if add_bounds:
-        jp.ax_marg_y.set_ylim(0, 25)
-        jp.ax_marg_x.set_xlim(0, 25)
+        jp.ax_marg_y.set_ylim(0, 1e6)
+        jp.ax_marg_x.set_xlim(0, 1e6)
     jp.fig.suptitle(
         f"{title}\ncorr = %.2f" % corr
         + (", rmse = %.2f" % rmse if add_rmse else '')
@@ -77,8 +80,11 @@ def draw_corr_sns(group_df: pd.DataFrame, x_key: str, y_key: str, x_title: str, 
 
     )
     plt.tight_layout()
-    plt.savefig(f"{res_dir}/corr.png")
-    plt.clf()
+    if res_dir is not None:
+        plt.savefig(f"{res_dir}/corr.png")
+        plt.clf()
+    else:
+        plt.show()
 
 
 def draw_pie_chart(df: pd.DataFrame, sum_key: str, group_key: str, mode: str, res_path: str):
