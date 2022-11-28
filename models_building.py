@@ -48,7 +48,7 @@ def build_scenarios(
         elif method == 'rsf':
             model = RandomSurvivalForest(**args_dict)
             model.fit(X=x_train, y=y_train)
-            c_val = model.score(X=x_test, y=y_test)
+            c_val = model.score(X=x_test[:10_000], y=y_test[:10_000])
 
             res_list.append(
                 {
