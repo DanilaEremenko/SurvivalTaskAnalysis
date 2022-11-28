@@ -107,6 +107,7 @@ if __name__ == '__main__':
     y_train = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_train_src)
     y_test = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_test_src)
 
+
     # ################################################
     # -------------- search params -------------------
     # ################################################
@@ -123,19 +124,21 @@ if __name__ == '__main__':
     #             random_state=42
     #         )
     #         # # search
-    #         for n_estimators in [10, 50, 150]
-    #         for min_samples_leaf in [1, 2, 4]
-    #         for bootstrap in [True, False]
-    #         for max_features in [1.0, 0.75, 0.5, 0.25]
+    #         # for n_estimators in [10, 50, 150]
+    #         # for min_samples_leaf in [1, 4]
+    #         # for bootstrap in [True, False]
+    #         # for max_features in [1.0, 0.5]
+    #         # for max_samples in [10_000]
     #
     #         # stable
-    #         # for n_estimators in [100]
-    #         # for min_samples_leaf in [4]
-    #         # for bootstrap in [True]
-    #         # for max_features in [1.]
+    #         for n_estimators in [50]
+    #         for min_samples_leaf in [4]
+    #         for bootstrap in [True]
+    #         for max_features in [1.]
+    #         for max_samples in [10_000]
     #     ]
     # )
-    #
+    # #
     # for key, le in le_dict.items():
     #     res_list_df[key] = le.inverse_transform(res_list_df[key])
     #
@@ -146,12 +149,12 @@ if __name__ == '__main__':
     # -------------- fit minimal params --------------
     # ################################################
     # rsf = RandomSurvivalForest(
-    #     n_estimators=10,
+    #     n_estimators=50,
     #     min_samples_leaf=4,
     #     bootstrap=True,
     #     max_features=1.,
     #     max_samples=10_000,
-    #     random_state=4, n_jobs=4
+    #     random_state=4, n_jobs=1
     # )
     # print("fit best params..")
     #
@@ -174,7 +177,7 @@ if __name__ == '__main__':
     #
     # score_time_df = pd.DataFrame(score_time_list)
     #
-    # dump(rsf, f'{exp_desc.res_dir}/model.joblib')
+    # dump(rsf, f'{exp_desc.res_dir}/model_deep.joblib')
 
     # ################################################
     # -------------- upload model --------------------
@@ -208,6 +211,28 @@ if __name__ == '__main__':
     #     {k: imps_raw[k] for k in ("importances_mean", "importances_std",)},
     #     index=x_test_sel.columns
     # ).sort_values(by="importances_mean", ascending=False)
-    # y_pred = pd.DataFrame({'y_pred': np.concatenate([rsf.predict(x_test[start:start + 200])
-    #                                                  for start in range(0, len(x_test), 200)])})
+    #
+    #
+    # def get_event_time_manual(probs: np.ndarray):
+    #     res_arr = []
+    #     print('predicting 200')
+    #     for i, curr_probs in enumerate(probs):
+    #         for et, prob in zip(rsf.event_times_, curr_probs):
+    #             if prob == curr_probs.min():
+    #                 res_arr.append(et)
+    #                 break
+    #         # if len(res_arr) != i + 1:
+    #         #     raise Exception('No prob < 0.1 in prob vector')
+    #     return res_arr
+    #
+    #
+    # y_pred = pd.DataFrame(
+    #     {
+    #         'y_pred': np.concatenate([
+    #             get_event_time_manual(probs=rsf.predict_survival_function(x_test[start:start + 200], return_array=True))
+    #             for start in range(0, len(x_test), 200)
+    #         ])
+    #     }
+    # )
+    # y_pred = rsf.predict(x_test)
     # y_pred.to_csv('sk-full-data/fair_ds/y_pred_surv.csv', index=False)
