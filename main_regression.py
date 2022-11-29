@@ -10,9 +10,9 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 from typing import Dict, List
 
-from drawing import draw_group_bars_and_boxes, draw_corr_sns, draw_pie_chart
-from models_building import build_scenarios
-from time_ranges import get_time_range_symb
+from lib.drawing import draw_group_bars_and_boxes, draw_corr_sns, draw_pie_chart
+from lib.models_building import build_scenarios
+from lib.time_ranges import get_time_range_symb
 
 
 def draw_bars_and_boxes_by_categories(df: pd.DataFrame, group_keys: List[str], y_key: str, res_dir: Path):

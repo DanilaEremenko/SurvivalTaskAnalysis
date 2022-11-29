@@ -4,9 +4,9 @@ import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import LabelEncoder
 import time
-from time_ranges import get_time_range_symb
+from lib.time_ranges import get_time_range_symb
 from typing import Dict
-from kmeans_lu import KMeansLU
+from lib.kmeans_lu import KMeansLU
 
 df = pd.read_csv('sk-full-data/fair_ds/train.csv')
 y_key = 'ElapsedRaw'

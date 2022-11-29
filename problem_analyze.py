@@ -1,7 +1,7 @@
 import pandas as pd
 
-from drawing import draw_corr_sns
-from time_ranges import get_time_range_symb
+from lib.drawing import draw_corr_sns
+from lib.time_ranges import get_time_range_symb
 
 src_df = pd.read_csv('sk-full-data/fair_ds/test.csv')
 src_df['TimelimitReg'] = pd.read_csv('sk-full-data/fair_ds/y_pred_reg.csv')['y_pred']

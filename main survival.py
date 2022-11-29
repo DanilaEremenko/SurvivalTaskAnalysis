@@ -12,7 +12,7 @@ from sksurv.ensemble import RandomSurvivalForest
 from sksurv.util import Surv
 from joblib import dump, load
 
-from models_building import build_scenarios
+from lib.models_building import build_scenarios
 
 
 def translate_func_simple(df: pd.DataFrame) -> pd.DataFrame:
