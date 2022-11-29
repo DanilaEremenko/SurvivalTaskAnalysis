@@ -10,7 +10,7 @@ from plotly.subplots import make_subplots
 import plotly.express as px
 import matplotlib.pyplot as plt
 
-from losses import Losses
+from lib.losses import Losses
 
 
 def get_random_color() -> str:
