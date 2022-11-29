@@ -1,19 +1,18 @@
-import time
-from typing import Dict
-
 import numpy as np
 from pandas.core.dtypes.common import is_string_dtype
-from sklearn.cluster import DBSCAN, KMeans
 import pandas as pd
+from sklearn.cluster import KMeans
 from sklearn.preprocessing import LabelEncoder
-
+import time
 from time_ranges import get_time_range_symb
+from typing import Dict
+from kmeans_lu import KMeansLU
 
-df = pd.read_csv('sk-full-data/full_data.csv')
-features_keys = ['NumTasks', 'CPUs/Task', 'Priority', 'TimelimitRaw']
+df = pd.read_csv('sk-full-data/fair_ds/train.csv')
 y_key = 'ElapsedRaw'
-# filt_df = df[[*features_keys, y_key]]
-filt_df = df.drop(columns=['MinMemoryNode']).dropna(axis=1)
+x_keys = [key for key in df.keys() if key != y_key]
+filt_df = df[[*x_keys, y_key]]
+filt_df = filt_df.drop(columns=['MinMemoryNode']).dropna(axis=1) if 'MinMemoryNode' in filt_df.keys() else filt_df
 
 le_dict: Dict[str, LabelEncoder] = {
     key: LabelEncoder() for key in filt_df.keys()
@@ -23,15 +22,10 @@ for key, le in le_dict.items():
     print(f"translating {key}")
     filt_df[key] = le.fit_transform(filt_df[key])
 
-
-def weighted_eucl(p1: np.ndarray, p2: np.ndarray) -> float:
-    return np.sqrt(np.sum((p1 - p2) ** 2))
-
-
 time_start = time.time()
-# res = DBSCAN(metric=weighted_eucl).fit_predict(imp_df.to_numpy())
-# res = DBSCAN().fit_predict(important_cols_df.to_numpy())
-filt_df.loc[:, 'cl'] = KMeans(n_clusters=3).fit_predict(filt_df.to_numpy())
+filt_df = filt_df.iloc[:10_000]
+# filt_df.loc[:, 'cl'] = KMeans(n_clusters=3, random_state=42).fit_predict(filt_df.to_numpy())
+filt_df.loc[:, 'cl'] = KMeansLU(n_clusters=3, random_state=42).fit_predict(filt_df.to_numpy())
 print(f"clustering time = {time.time() - time_start}")
 
 filt_df.loc[:, 'time_elapsed_range'] = [get_time_range_symb(task_time=task_time)
