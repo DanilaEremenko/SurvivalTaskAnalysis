@@ -92,7 +92,7 @@ class KMeansLU:
         self.random_state = check_random_state(random_state)
         self.max_iter = max_iter
         self.labels_ = None
-        self.centroids_ = None
+        self.cluster_centers_ = None
 
     def _init_centroids(
             self, X, x_squared_norms, init, random_state, init_size=None, n_centroids=None
@@ -162,7 +162,7 @@ class KMeansLU:
 
     def fit(self, X: np.ndarray):
         self.labels_ = np.zeros(shape=len(X))
-        self.centroids_ = self._init_centroids(
+        self.cluster_centers_ = self._init_centroids(
             X=X,
             x_squared_norms=row_norms(X, squared=True),
             init="k-means++",
@@ -174,7 +174,7 @@ class KMeansLU:
             self.iter_func(
                 X=X,
                 labels=self.labels_,
-                centroids=self.centroids_,
+                centroids=self.cluster_centers_,
                 dist_func=self.dist_func
             )
 
