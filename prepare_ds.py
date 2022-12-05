@@ -20,8 +20,9 @@ filt_df = src_df.dropna(axis=1)
 filt_ignored_keys = [key for key in ignored_keys if key in filt_df.keys()]
 filt_df = filt_df.drop(columns=filt_ignored_keys)
 filt_df = filt_df[filt_df['ElapsedRaw'] > 0]
+filt_df = filt_df[[key for key in filt_df.keys()]]
 
 train_df, test_df = train_test_split(filt_df, test_size=0.33, random_state=42)
 
-train_df.to_csv(f'{res_dir}/train.csv')
-test_df.to_csv(f'{res_dir}/test.csv')
+train_df.to_csv(f'{res_dir}/train.csv', index=False)
+test_df.to_csv(f'{res_dir}/test.csv', index=False)
