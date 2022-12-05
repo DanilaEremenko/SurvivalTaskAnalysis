@@ -94,42 +94,55 @@ if __name__ == '__main__':
     #     args_scenarios=[
     #         dict(
     #             n_estimators=n_estimators,
+    #             # max_depth=max_depth,
     #             min_samples_leaf=min_samples_leaf,
-    #             bootstrap=bootstrap,
     #             max_features=max_features,
+    #             bootstrap=bootstrap,
     #             n_jobs=4,
     #             random_state=42
     #         )
-    #         # # search
-    #         # for n_estimators in [10, 50, 150]
+    #         # search
+    #         # for n_estimators in [100, 250]
+    #         # # for max_depth in [1, 2, 4, 8]
     #         # for min_samples_leaf in [1, 2, 4]
+    #         # for max_features in [0.25, 0.5, 1.0]
     #         # for bootstrap in [True, False]
-    #         # for max_features in [1.0, 0.75, 0.5, 0.25]
     #
     #         # stable
-    #         for n_estimators in [50]
+    #         for n_estimators in [100]
+    #         # for max_depth in [1, 2, 4, 8]
     #         for min_samples_leaf in [1]
-    #         for bootstrap in [False]
     #         for max_features in [0.25]
+    #         for bootstrap in [True]
     #     ]
     # )
     #
-    # res_list_df.sort_values('mae', inplace=True)
-    # res_list_df.to_csv(f'{exp_desc.res_dir}/res_last_search.csv')
+    # res_list_df.sort_values('r', ascending=False, inplace=True)
+    # res_list_df.to_csv(f'{exp_desc.res_dir}/res_last_search_big_trees.csv')
     #
     # best_args = json.loads(res_list_df.iloc[0]['args_dict'])
     #
     # rf = RandomForestRegressor(**best_args)
     # rf.fit(X=x_train, y=y_train)
     #
-    # dump(rf, f'{exp_desc.res_dir}/model.joblib')
+    # dump(rf, f'{exp_desc.res_dir}/model_stable.joblib')
     ################################################
     # --- analyze model errors & dependencies  -----
     ################################################
-    rf = load(f'{exp_desc.res_dir}/model.joblib')
-
-    imp_df = pd.DataFrame({'feature': x_test.keys(), 'imp': rf.feature_importances_}) \
-        .sort_values('imp', ascending=False)
-
+    rf = RandomForestRegressor(
+        n_estimators=100,
+        # max_depth=max_depth,
+        min_samples_leaf=1,
+        max_features=0.25,
+        bootstrap=True,
+        n_jobs=4,
+        random_state=42
+    )
+    rf.fit(X=x_train, y=y_train)
+    # rf = load(f'{exp_desc.res_dir}/model.joblib')
+    #
+    # imp_df = pd.DataFrame({'feature': x_test.keys(), 'imp': rf.feature_importances_}) \
+    #     .sort_values('imp', ascending=False)
+    #
     y_pred = pd.DataFrame({'y_pred': rf.predict(x_test)})
     y_pred.to_csv('sk-full-data/fair_ds/y_pred_reg.csv', index=False)

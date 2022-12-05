@@ -1,3 +1,4 @@
+import random
 import time
 from pathlib import Path
 from typing import List, Dict
@@ -12,7 +13,7 @@ from sksurv.ensemble import RandomSurvivalForest
 from sksurv.util import Surv
 from joblib import dump, load
 
-from lib.models_building import build_scenarios
+from lib.models_building import build_scenarios, get_event_time_manual
 
 
 def translate_func_simple(df: pd.DataFrame) -> pd.DataFrame:
@@ -20,6 +21,7 @@ def translate_func_simple(df: pd.DataFrame) -> pd.DataFrame:
     df.loc[:, 'event'] = 0
     df.loc[df['State'] == 'COMPLETED', 'event'] = 1
     df.loc[df['State'] == 'TIMEOUT', 'event'] = 1
+    df.loc[random.choice(df.index), 'event'] = 0
     return df
 
 
@@ -48,8 +50,8 @@ if __name__ == '__main__':
     exp_list = [
         ExpSurvDesc(
             res_dir='full_surv_elapsed_time (simple super fair)',
-            test_file='sk-full-data/fair_ds/train.csv',
-            train_file='sk-full-data/fair_ds/test.csv',
+            train_file='sk-full-data/fair_ds/train.csv',
+            test_file='sk-full-data/fair_ds/test.csv',
             y_key='ElapsedRaw',
             event_key='event',
             translate_func=translate_func_simple
@@ -107,61 +109,58 @@ if __name__ == '__main__':
     y_train = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_train_src)
     y_test = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_test_src)
 
-
     # ################################################
     # -------------- search params -------------------
     # ################################################
     # res_list_df = build_scenarios(
-    #     x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
+    #     x_train=x_train, y_train=y_train, x_test=x_test[:10_000], y_test=y_test[:10_000],
     #     method='rsf',
     #     args_scenarios=[
     #         dict(
     #             n_estimators=n_estimators,
+    #             # max_depth=max_depth,
     #             min_samples_leaf=min_samples_leaf,
     #             bootstrap=bootstrap,
-    #             max_features=max_features,
+    #             max_samples=max_samples,
     #             n_jobs=4,
     #             random_state=42
     #         )
-    #         # # search
-    #         # for n_estimators in [10, 50, 150]
-    #         # for min_samples_leaf in [1, 4]
-    #         # for bootstrap in [True, False]
-    #         # for max_features in [1.0, 0.5]
-    #         # for max_samples in [10_000]
+    #         # search
+    #         for bootstrap in [True]
+    #         for n_estimators in [150, 250, 500]
+    #         # for max_depth in [1, 2, 4, 8]
+    #         for min_samples_leaf in [1, 2, 4, 8]
+    #         for max_features in [0.25, 0.5]
+    #         for max_samples in [0.01, 0.05]
     #
     #         # stable
-    #         for n_estimators in [50]
-    #         for min_samples_leaf in [4]
-    #         for bootstrap in [True]
-    #         for max_features in [1.]
-    #         for max_samples in [10_000]
+    #         # for n_estimators in [250]
+    #         # for max_depth in [4]
+    #         # for max_features in [1.]
+    #         # for max_samples in [4000]
     #     ]
     # )
-    # #
-    # for key, le in le_dict.items():
-    #     res_list_df[key] = le.inverse_transform(res_list_df[key])
     #
-    # res_list_df.sort_values('c-val', inplace=True)
-    # res_list_df.to_csv(f'{exp_desc.res_dir}/res_last_search.csv')
+    # res_list_df.sort_values('r', ascending=False, inplace=True)
+    # res_list_df.to_csv(f'{exp_desc.res_dir}/res_big_tress_search.csv')
 
     # ################################################
     # -------------- fit minimal params --------------
     # ################################################
-    # rsf = RandomSurvivalForest(
-    #     n_estimators=50,
-    #     min_samples_leaf=4,
-    #     bootstrap=True,
-    #     max_features=1.,
-    #     max_samples=10_000,
-    #     random_state=4, n_jobs=1
-    # )
-    # print("fit best params..")
-    #
-    # start_fit_time = time.time()
-    # rsf.fit(X=x_train, y=y_train)
-    # print(f'fit time = {time.time() - start_fit_time}')
-    #
+    rsf = RandomSurvivalForest(
+        n_estimators=500,
+        max_depth=1,
+        bootstrap=True,
+        max_samples=0.01,
+        n_jobs=4,
+        random_state=42
+    )
+    print("fit best params..")
+
+    start_fit_time = time.time()
+    rsf.fit(X=x_train, y=y_train)
+    print(f'fit time = {time.time() - start_fit_time}')
+
     # score_time_list = []
     # for samples_num in [2500, 5000, 10_000]:
     #     start_score_time = time.time()
@@ -176,9 +175,8 @@ if __name__ == '__main__':
     #     print(score_time_list[-1])
     #
     # score_time_df = pd.DataFrame(score_time_list)
-    #
-    # dump(rsf, f'{exp_desc.res_dir}/model_deep.joblib')
 
+    dump(rsf, f'{exp_desc.res_dir}/model_stable_rsf.joblib')
     # ################################################
     # -------------- upload model --------------------
     # ################################################
@@ -212,20 +210,7 @@ if __name__ == '__main__':
     #     index=x_test_sel.columns
     # ).sort_values(by="importances_mean", ascending=False)
     #
-    #
-    # def get_event_time_manual(probs: np.ndarray):
-    #     res_arr = []
-    #     print('predicting 200')
-    #     for i, curr_probs in enumerate(probs):
-    #         for et, prob in zip(rsf.event_times_, curr_probs):
-    #             if prob == curr_probs.min():
-    #                 res_arr.append(et)
-    #                 break
-    #         # if len(res_arr) != i + 1:
-    #         #     raise Exception('No prob < 0.1 in prob vector')
-    #     return res_arr
-    #
-    #
+    start_time = time.time()
     # y_pred = pd.DataFrame(
     #     {
     #         'y_pred': np.concatenate([
@@ -234,5 +219,10 @@ if __name__ == '__main__':
     #         ])
     #     }
     # )
-    # y_pred = rsf.predict(x_test)
-    # y_pred.to_csv('sk-full-data/fair_ds/y_pred_surv.csv', index=False)
+    y_pred = pd.DataFrame(
+        {
+            'y_pred': rsf.predict(x_test)
+        }
+    )
+    print(f"time={time.time() - start_time}")
+    y_pred.to_csv('sk-full-data/fair_ds/y_pred_surv_small_trees.csv', index=False)
