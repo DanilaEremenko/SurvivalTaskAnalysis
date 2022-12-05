@@ -1,8 +1,14 @@
 import json
+import time
 from typing import List
+
+import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
+import sklearn.metrics as metrics
 from sksurv.ensemble import RandomSurvivalForest
+
+from lib.losses import Losses
 
 
 def get_reg_predictions_and_metrics_df(model, X, y) -> pd.DataFrame:
@@ -23,6 +29,19 @@ def get_reg_predictions_and_metrics_df(model, X, y) -> pd.DataFrame:
     return res_test_df
 
 
+def get_event_time_manual(event_times: np.ndarray, probs: np.ndarray) -> List[float]:
+    res_arr = []
+    print('predicting 200')
+    for i, curr_probs in enumerate(probs):
+        for et, prob in zip(event_times, curr_probs):
+            if prob == curr_probs.min():
+                res_arr.append(et)
+                break
+        # if len(res_arr) != i + 1:
+        #     raise Exception('No prob < 0.1 in prob vector')
+    return res_arr
+
+
 def build_scenarios(
         x_train, y_train, x_test, y_test,
         args_scenarios: List[dict],
@@ -41,19 +60,32 @@ def build_scenarios(
             res_list.append(
                 {
                     'args_dict': json.dumps(args_dict),
-                    'mae': mae
+                    'mae': mae,
+                    'r': Losses.r(pred=res_test_df['y_pred'], y=res_test_df['y_true'])
                 }
             )
 
         elif method == 'rsf':
             model = RandomSurvivalForest(**args_dict)
+            start_time = time.time()
             model.fit(X=x_train, y=y_train)
-            c_val = model.score(X=x_test[:10_000], y=y_test[:10_000])
+            print('predicting')
+            y_test_pred = model.predict(x_test)
+
+            # y_test_pred = np.concatenate([
+            #     get_event_time_manual(
+            #         event_times=model.event_times_,
+            #         probs=model.predict_survival_function(x_test[start:start + 200], return_array=True)
+            #     )
+            #     for start in range(0, len(x_test), 200)
+            # ])
 
             res_list.append(
                 {
                     'args_dict': json.dumps(args_dict),
-                    'c-val': c_val
+                    # 'c-val': model.score(X=x_test[:10_000], y=y_test[:10_000]),
+                    'r': Losses.r(y=[y[1] for y in y_test], pred=y_test_pred),
+                    'fit_predict_time': time.time() - start_time
                 }
             )
         else:
