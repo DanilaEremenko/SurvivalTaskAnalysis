@@ -15,38 +15,6 @@ from lib.models_building import build_scenarios
 from lib.time_ranges import get_time_range_symb
 
 
-def draw_bars_and_boxes_by_categories(df: pd.DataFrame, group_keys: List[str], y_key: str, res_dir: Path):
-    res_dir.mkdir(exist_ok=True, parents=True)
-
-    for group_key in group_keys:
-        res_path = f'{res_dir}/{y_key}_agg_by_{group_key.replace(":", "")}.html'
-        print(f'drawing {res_path}')
-        draw_group_bars_and_boxes(df=df, group_key=group_key, y_key=y_key, res_path=res_path)
-
-
-def draw_correlations(res_test_df: pd.DataFrame, res_dir: Path):
-    draw_corr_sns(
-        group_df=res_test_df,
-        x_key='y_true', x_title='True time (seconds)',
-        y_key='y_pred', y_title='Estimated time (seconds)',
-        add_mae=False, add_rmse=False, add_mae_perc=True,
-        title='All correlation',
-        kind='reg',
-        res_dir=res_dir,
-    )
-
-    for time_range in res_test_df['time_range'].unique():
-        draw_corr_sns(
-            group_df=res_test_df[res_test_df['time_range'] == time_range],
-            x_key='y_true', x_title='True time (seconds)',
-            y_key='y_pred', y_title='Estimated time (seconds)',
-            add_mae=False, add_rmse=False, add_mae_perc=True,
-            title=f'{time_range} correlation',
-            kind='reg',
-            res_dir=res_dir.joinpath(time_range),
-        )
-
-
 class ExpRegDesc:
     def __init__(self, res_dir: str, train_file: str, test_file: str, y_key: str):
         self.res_dir = Path(res_dir)
