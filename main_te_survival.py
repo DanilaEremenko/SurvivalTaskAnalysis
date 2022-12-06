@@ -1,3 +1,4 @@
+import json
 import random
 import time
 from pathlib import Path
@@ -13,6 +14,7 @@ from sksurv.ensemble import RandomSurvivalForest
 from sksurv.util import Surv
 from joblib import dump, load
 
+from lib.losses import Losses
 from lib.models_building import build_scenarios, get_event_time_manual
 
 
@@ -21,7 +23,7 @@ def translate_func_simple(df: pd.DataFrame) -> pd.DataFrame:
     df.loc[:, 'event'] = 0
     df.loc[df['State'] == 'COMPLETED', 'event'] = 1
     df.loc[df['State'] == 'TIMEOUT', 'event'] = 1
-    df.loc[random.choice(df.index), 'event'] = 0
+    # df.loc[random.choice(df.index), 'event'] = 0
     return df
 
 
@@ -47,18 +49,15 @@ if __name__ == '__main__':
     ################################################
     # ------------ exp descriptions  ---------------
     ################################################
-    exp_list = [
-        ExpSurvDesc(
-            res_dir='full_surv_elapsed_time (simple super fair)',
-            train_file='sk-full-data/fair_ds/train.csv',
-            test_file='sk-full-data/fair_ds/test.csv',
-            y_key='ElapsedRaw',
-            event_key='event',
-            translate_func=translate_func_simple
-        )
-    ]
+    exp_desc = ExpSurvDesc(
+        res_dir='full_surv_elapsed_time (simple super fair)',
+        train_file='sk-full-data/fair_ds/train.csv',
+        test_file='sk-full-data/fair_ds/test.csv',
+        y_key='ElapsedRaw',
+        event_key='event',
+        translate_func=translate_func_simple
+    )
 
-    exp_desc = exp_list[0]
     exp_desc.res_dir.mkdir(exist_ok=True)
 
     ################################################
@@ -69,8 +68,12 @@ if __name__ == '__main__':
     test_df = pd.read_csv(exp_desc.test_file, index_col=0)
 
     # State is neccessary for event formation
-    train_df = pd.merge(left=train_df, right=src_df[['State']], left_index=True, right_index=True)
-    test_df = pd.merge(left=test_df, right=src_df[['State']], left_index=True, right_index=True)
+    new_train_df = pd.merge(left=train_df, right=src_df[['State']], left_index=True, right_index=True)
+    new_test_df = pd.merge(left=test_df, right=src_df[['State']], left_index=True, right_index=True)
+    assert Losses.r(new_train_df['ElapsedRaw'], train_df['ElapsedRaw']) == 1.0
+    assert Losses.r(new_test_df['ElapsedRaw'], test_df['ElapsedRaw']) == 1.0
+    train_df = new_train_df
+    test_df = new_test_df
 
     train_df = exp_desc.translate_func(train_df)
     test_df = exp_desc.translate_func(test_df)
@@ -112,75 +115,38 @@ if __name__ == '__main__':
     # ################################################
     # -------------- search params -------------------
     # ################################################
-    # res_list_df = build_scenarios(
-    #     x_train=x_train, y_train=y_train, x_test=x_test[:10_000], y_test=y_test[:10_000],
-    #     method='rsf',
-    #     args_scenarios=[
-    #         dict(
-    #             n_estimators=n_estimators,
-    #             # max_depth=max_depth,
-    #             min_samples_leaf=min_samples_leaf,
-    #             bootstrap=bootstrap,
-    #             max_samples=max_samples,
-    #             n_jobs=4,
-    #             random_state=42
-    #         )
-    #         # search
-    #         for bootstrap in [True]
-    #         for n_estimators in [150, 250, 500]
-    #         # for max_depth in [1, 2, 4, 8]
-    #         for min_samples_leaf in [1, 2, 4, 8]
-    #         for max_features in [0.25, 0.5]
-    #         for max_samples in [0.01, 0.05]
-    #
-    #         # stable
-    #         # for n_estimators in [250]
-    #         # for max_depth in [4]
-    #         # for max_features in [1.]
-    #         # for max_samples in [4000]
-    #     ]
-    # )
-    #
-    # res_list_df.sort_values('r', ascending=False, inplace=True)
-    # res_list_df.to_csv(f'{exp_desc.res_dir}/res_big_tress_search.csv')
-
-    # ################################################
-    # -------------- fit minimal params --------------
-    # ################################################
-    rsf = RandomSurvivalForest(
-        n_estimators=500,
-        max_depth=1,
-        bootstrap=True,
-        max_samples=0.01,
-        n_jobs=4,
-        random_state=42
+    res_list_df = build_scenarios(
+        x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
+        method='rsf'
     )
-    print("fit best params..")
 
-    start_fit_time = time.time()
-    rsf.fit(X=x_train, y=y_train)
-    print(f'fit time = {time.time() - start_fit_time}')
+    res_list_df.sort_values('r', ascending=False, inplace=True)
+    res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
 
-    # score_time_list = []
-    # for samples_num in [2500, 5000, 10_000]:
-    #     start_score_time = time.time()
-    #     score = rsf.score(X=x_test.iloc[0:samples_num], y=y_test[0:samples_num])
-    #     score_time_list.append(
-    #         {
-    #             'score': score,
-    #             'samples_num': samples_num,
-    #             'time': time.time() - start_score_time
-    #         }
-    #     )
-    #     print(score_time_list[-1])
-    #
-    # score_time_df = pd.DataFrame(score_time_list)
+    best_args = json.loads(res_list_df.iloc[0]['args_dict'])
 
-    dump(rsf, f'{exp_desc.res_dir}/model_stable_rsf.joblib')
+    rf = RandomSurvivalForest(**best_args)
+    rf.fit(X=x_train, y=y_train)
+
+    dump(rf, f'{exp_desc.res_dir}/model_stable.joblib')
     # ################################################
     # -------------- upload model --------------------
     # ################################################
     # rsf = load(f'{exp_desc.res_dir}/model.joblib')
+    # rsf = RandomSurvivalForest(
+    #     n_estimators=100,
+    #     max_depth=1,
+    #     bootstrap=True,
+    #     max_samples=0.01,
+    #     n_jobs=4,
+    #     random_state=42
+    # )
+    # print("fit best params..")
+    #
+    # start_fit_time = time.time()
+    # rsf.fit(X=x_train, y=y_train)
+    #
+    # print(f"fit time = {time.time() - start_fit_time}")
     #
     # y_test_src_sorted = y_test_src.sort_values('ElapsedRaw')
     # # y_test_src_sel = pd.concat([y_test_src_sorted.iloc[:3], y_test_src_sorted.iloc[-3:]])
@@ -210,7 +176,7 @@ if __name__ == '__main__':
     #     index=x_test_sel.columns
     # ).sort_values(by="importances_mean", ascending=False)
     #
-    start_time = time.time()
+    # start_time = time.time()
     # y_pred = pd.DataFrame(
     #     {
     #         'y_pred': np.concatenate([
@@ -219,10 +185,10 @@ if __name__ == '__main__':
     #         ])
     #     }
     # )
-    y_pred = pd.DataFrame(
-        {
-            'y_pred': rsf.predict(x_test)
-        }
-    )
-    print(f"time={time.time() - start_time}")
-    y_pred.to_csv('sk-full-data/fair_ds/y_pred_surv_small_trees.csv', index=False)
+    # y_pred = pd.DataFrame(
+    #     {
+    #         'y_pred': rsf.predict(x_test)
+    #     }
+    # )
+    # print(f"predict time={time.time() - start_time}")
+    # y_pred.to_csv('sk-full-data/fair_ds/y_pred_surv_small_trees.csv', index=False)
