@@ -1,6 +1,7 @@
 import numpy as np
 from pandas.core.dtypes.common import is_string_dtype
 import pandas as pd
+from pathlib import Path
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 from sklearn.preprocessing import LabelEncoder
@@ -9,6 +10,9 @@ from lib.time_ranges import get_time_range_symb
 from typing import Dict, List, Optional
 from lib.kmeans_lu import KMeansLU
 import matplotlib.pyplot as plt
+
+CL_RES_DIR = Path('sk-full-data/fair_ds/k_means')
+CL_RES_DIR.mkdir(exist_ok=True)
 
 
 def get_stat_df_by_key(df: pd.DataFrame, group_key: str) -> pd.DataFrame:
@@ -47,6 +51,9 @@ def rec_cluster(df: pd.DataFrame, centroids_dict: Dict[int, List]):
         df.loc[:, 'cl_l1'] = k.labels_
         for i in range(2):
             centroids_dict[i] = k.cluster_centers_[i]
+
+        centroids_dict_to_df(centroids_dict).to_csv(f'{CL_RES_DIR}/train_centroids_l1.csv')
+
     else:
         last_cl_lvl = max(clust_levels)
 
@@ -70,6 +77,8 @@ def rec_cluster(df: pd.DataFrame, centroids_dict: Dict[int, List]):
         del centroids_dict[biggest_clust_val]
         for i in range(2):
             centroids_dict[i + cl_val_shift] = k.cluster_centers_[i]
+
+        centroids_dict_to_df(centroids_dict).to_csv(f'{CL_RES_DIR}/train_centroids_l{last_cl_lvl + 1}.csv')
 
 
 def centroids_dict_to_df(centroids_dict: Dict[int, List]) -> pd.DataFrame:
@@ -123,7 +132,7 @@ if __name__ == '__main__':
     # -------------------------------------------------------------
     # ---------------------- data parsing -------------------------
     # -------------------------------------------------------------
-    df = pd.read_csv('sk-full-data/fair_ds/train.csv')
+    df = pd.read_csv('sk-full-data/fair_ds/train.csv', index_col=0)
     y_key = 'ElapsedRaw'
     x_keys = [key for key in df.keys() if key != y_key]
     filt_df = df[[*x_keys, y_key]]
@@ -157,3 +166,9 @@ if __name__ == '__main__':
     # [round(len(filt_df[filt_df['cl_l4'] == cl]) / len(filt_df), 2) for cl in filt_df['cl_l4'].unique()]
     # centroids_dict_to_df(centroids_dict)[['cl', 'ElapsedRaw']]
     # list(round(centroids_dict_to_df(centroids_dict)['ElapsedRaw'] / 3600, 2))
+
+    for key, le in le_dict.items():
+        print(f"back translating {key}")
+        filt_df[key] = le.inverse_transform(filt_df[key])
+
+    filt_df.to_csv(f'{CL_RES_DIR}/train_clustered.csv')
