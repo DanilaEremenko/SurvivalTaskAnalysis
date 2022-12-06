@@ -115,8 +115,19 @@ def build_scenarios(
                 }
             )
     elif method == 'cb':
-        model = ClusteringBasedModel(clust_key='cl_l4')
-        model.fit(X=x_train, y=y_train)
+        for cl_lvl in [4]:
+            model = ClusteringBasedModel(clust_key=f'cl_l{cl_lvl}')
+            start_time = time.time()
+            model.fit(X=x_train, y=y_train)
+            y_test_pred = model.predict(X=x_test)
+            res_list.append(
+                {
+                    'args_dict': json.dumps({'cl_lvl': cl_lvl}),
+                    # 'c-val': model.score(X=x_test[:10_000], y=y_test[:10_000]),
+                    'fit_predict_time': time.time() - start_time,
+                    'r': Losses.r(y=y_test, pred=y_test_pred)
+                }
+            )
     else:
         raise Exception(f'Undefined reg methods = {method}')
 
