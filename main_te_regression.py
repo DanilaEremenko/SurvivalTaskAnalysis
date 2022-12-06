@@ -27,7 +27,6 @@ if __name__ == '__main__':
     ################################################
     # ------------ exp descriptions  ---------------
     ################################################
-
     exp_desc = ExpRegDesc(
         res_dir='full_reg_elapsed_time (super fair)',
         train_file='sk-full-data/fair_ds/train.csv',
