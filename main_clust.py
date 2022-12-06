@@ -150,3 +150,10 @@ if __name__ == '__main__':
     stat_df = get_stat_df_by_key(filt_df, group_key='cl_l4')
 
     draw_tsne_matplot(features_df=centroids_dict_to_df(centroids_dict))
+
+    # check clust dist
+    # sorted([round(filt_df[filt_df['cl_l4'] == cl]['ElapsedRaw'].mean() / 3600, 2) for cl in filt_df['cl_l4'].unique()])
+    # [round(filt_df[filt_df['cl_l4'] == cl]['ElapsedRaw'].mean() / 3600, 2) for cl in filt_df['cl_l4'].unique()]
+    # [round(len(filt_df[filt_df['cl_l4'] == cl]) / len(filt_df), 2) for cl in filt_df['cl_l4'].unique()]
+    # centroids_dict_to_df(centroids_dict)[['cl', 'ElapsedRaw']]
+    # list(round(centroids_dict_to_df(centroids_dict)['ElapsedRaw'] / 3600, 2))
