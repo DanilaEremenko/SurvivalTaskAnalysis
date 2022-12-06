@@ -63,13 +63,6 @@ if __name__ == '__main__':
 
     res_list_df.sort_values('r', ascending=False, inplace=True)
     res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
-
-    best_args = json.loads(res_list_df.iloc[0]['args_dict'])
-
-    rf = RandomForestRegressor(**best_args)
-    rf.fit(X=x_train, y=y_train)
-
-    dump(rf, f'{exp_desc.res_dir}/model_stable.joblib')
     ################################################
     # --- analyze model errors & dependencies  -----
     ################################################
