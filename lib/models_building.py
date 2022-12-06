@@ -115,8 +115,15 @@ def build_scenarios(
                 }
             )
     elif method == 'cb':
-        for cl_lvl in [4]:
-            model = ClusteringBasedModel(clust_key=f'cl_l{cl_lvl}')
+        for cl_lvl in [1, 2, 3, 4]:
+            print(f'fitting on cl_lvl = {cl_lvl}')
+            model = ClusteringBasedModel(
+                clust_key=f'cl_l{cl_lvl}',
+                cluster_centroids=pd.read_csv(
+                    f'sk-full-data/fair_ds/k_means/train_centroids_l{cl_lvl}.csv',
+                    index_col=0
+                )
+            )
             start_time = time.time()
             model.fit(X=x_train, y=y_train)
             y_test_pred = model.predict(X=x_test)
