@@ -30,7 +30,7 @@ if __name__ == '__main__':
     ################################################
     exp_desc = ExpRegDesc(
         res_dir='full_cluster_based_elapsed_time (super fair)',
-        train_file='sk-full-data/fair_ds/train_clustered.csv',
+        train_file='sk-full-data/fair_ds/k_means/train_clustered.csv',
         test_file='sk-full-data/fair_ds/test.csv',
         y_key='ElapsedRaw'
     )
