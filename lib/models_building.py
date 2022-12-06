@@ -88,7 +88,7 @@ def build_scenarios(
             {'min_samples_leaf': [2, 4, 8], **common_args}
         ]
         params_list = list(ParameterGrid(params_grid))
-        for i, args_dict in enumerate(params_list[:2]):
+        for i, args_dict in enumerate(params_list):
             print(f"fitting scenario {i}/{len(params_list)}")
 
             model = RandomSurvivalForest(**args_dict)
