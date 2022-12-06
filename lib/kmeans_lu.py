@@ -8,7 +8,8 @@ from sklearn.utils.extmath import row_norms
 from sklearn.utils.validation import _is_arraylike_not_scalar, check_array, check_random_state
 
 
-def dist(p1: np.ndarray, p2: np.ndarray) -> float:
+@njit
+def fast_dist(p1: np.ndarray, p2: np.ndarray) -> float:
     return np.sqrt(np.sum((p1 - p2) ** 2))
 
 
