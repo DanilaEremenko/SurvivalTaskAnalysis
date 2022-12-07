@@ -1,27 +1,47 @@
 import pandas as pd
 
+from experiments import EXP_PATH
 from lib.drawing import draw_corr_sns
 from lib.time_ranges import get_time_range_symb
 
-src_df = pd.read_csv('sk-full-data/fair_ds/test.csv')
-src_df['TimelimitReg'] = pd.read_csv('sk-full-data/fair_ds/y_pred_reg.csv')['y_pred']
-src_df['TimelimitSurv1'] = pd.read_csv('sk-full-data/fair_ds/y_pred_surv_big_trees.csv')['y_pred']
-src_df['TimelimitSurv2'] = pd.read_csv('sk-full-data/fair_ds/y_pred_surv_big_trees_my_pred.csv')['y_pred']
+compared_models = [
+    {
+        'model_name': 'human pred',
+        'pred_path': None,
+        'src_key': 'TimelimitRaw'
+    },
+    {
+        'model_name': 'reg rf',
+        'pred_path': 'sk-full-data/fair_ds_nogeov/y_pred_reg_rf.csv'
+    },
+    {
+        'model_name': 'reg lgbm',
+        'pred_path': 'sk-full-data/fair_ds_nogeov/y_pred_reg_lgbm.csv'
+    },
+    {
+        'model_name': 'surv rf',
+        'pred_path': 'sk-full-data/fair_ds_nogeov/y_pred_surv.csv'
+    },
+    {
+        'model_name': 'cl+reg rf',
+        'pred_path': 'sk-full-data/fair_ds_nogeov/y_pred_cl_kmlu.csv'
+    }
+]
+
+src_df = pd.read_csv(f'{EXP_PATH}/test.csv')
+
+for compared_dict in compared_models:
+    if compared_dict['pred_path'] is not None:
+        src_df[compared_dict['model_name']] = pd.read_csv(compared_dict['pred_path'])['y_pred']
+    else:
+        src_df[compared_dict['model_name']] = src_df[compared_dict['src_key']] * 60
 
 src_df['time_elapsed_range'] = [get_time_range_symb(task_time=task_time)
                                 for task_time in list(src_df['ElapsedRaw'])]
 
-src_df['time_limit_range'] = [get_time_range_symb(task_time=task_time)
-                              for task_time in list(src_df['TimelimitRaw'])]
-
-src_df['time_limit_reg_range'] = [get_time_range_symb(task_time=task_time)
-                                  for task_time in list(src_df['TimelimitReg'])]
-
-src_df['time_limit_surv_range1'] = [get_time_range_symb(task_time=task_time)
-                                    for task_time in list(src_df['TimelimitSurv1'])]
-
-src_df['time_limit_surv_range2'] = [get_time_range_symb(task_time=task_time)
-                                    for task_time in list(src_df['TimelimitSurv2'])]
+for compared_dict in compared_models:
+    src_df[compared_dict['model_name'] + ' range'] = [get_time_range_symb(task_time=task_time)
+                                                      for task_time in list(src_df[compared_dict['model_name']])]
 
 time_elapsed_agg_df = pd.DataFrame([
     {
@@ -39,47 +59,27 @@ confusion_df = []
 for gt_limit in src_df['time_elapsed_range'].unique():
     curr_el_df = src_df[src_df['time_elapsed_range'] == gt_limit]
     for pred_limit in src_df['time_elapsed_range'].unique():
-        curr_dumb_df = curr_el_df[curr_el_df['time_limit_range'] == pred_limit]
-        curr_dumb_gap = (curr_dumb_df['TimelimitRaw'] - curr_dumb_df['ElapsedRaw']).sum()
+        curr_dict = {
+            'y_true': gt_limit,
+            'y_predicted': pred_limit,
+        }
+        for model_dict in compared_models:
+            curr_df = curr_el_df[curr_el_df[model_dict['model_name'] + ' range'] == pred_limit]
+            curr_gap = (curr_df[model_dict['model_name']] - curr_df['ElapsedRaw']).sum()
+            curr_dict[f"{model_dict['model_name']} tasks (part)"] = len(curr_df) / len(curr_el_df)
+            # curr_dict[f"{model_dict['model_name']} gap (part)"] = curr_gap / SUMMARY_GAP
 
-        curr_reg_df = curr_el_df[curr_el_df['time_limit_reg_range'] == pred_limit]
-        curr_reg_gap = (curr_reg_df['TimelimitReg'] - curr_reg_df['ElapsedRaw']).sum()
-
-        curr_surv1_df = curr_el_df[curr_el_df['time_limit_surv_range1'] == pred_limit]
-        curr_surv1_gap = (curr_reg_df['TimelimitSurv1'] - curr_reg_df['ElapsedRaw']).sum()
-
-        curr_surv2_df = curr_el_df[curr_el_df['time_limit_surv_range2'] == pred_limit]
-        curr_surv2_gap = (curr_reg_df['TimelimitSurv2'] - curr_reg_df['ElapsedRaw']).sum()
-
-        confusion_df.append(
-            {
-                'y_true': gt_limit,
-                'y_predicted': pred_limit,
-
-                'tasks dumb (part)': len(curr_dumb_df) / len(curr_el_df),
-                # 'gap dumb (part)': curr_dumb_gap / SUMMARY_GAP,
-
-                'tasks reg (part)': len(curr_reg_df) / len(curr_el_df),
-                # 'gap reg (part)': curr_reg_gap / SUMMARY_GAP,
-
-                'tasks surv 1 (part)': len(curr_surv1_df) / len(curr_el_df),
-                # 'gap surv 1 (part)': curr_surv1_gap / SUMMARY_GAP,
-
-                'tasks surv 2 (part)': len(curr_surv2_df) / len(curr_el_df),
-                # 'gap surv 2 (part)': curr_surv2_gap / SUMMARY_GAP
-            }
-        )
+        confusion_df.append(curr_dict)
 
 confusion_df = pd.DataFrame(confusion_df).sort_values(['y_true', 'y_predicted'], ascending=False)
 
-model_names = ['human', 'reg model', 'surv model (lib predicts)', 'surv model (manual predicts)']
-model_keys = ['TimelimitRaw', 'TimelimitReg', 'TimelimitSurv1', 'TimelimitSurv2']
-for model_name, model_key in zip(model_names, model_keys):
+for model_dict in compared_models:
+    model_key = model_dict['model_name']
     draw_corr_sns(
         group_df=src_df,
         x_key='ElapsedRaw', y_key=model_key,
         x_title='Elapsed Time', y_title=f'Predicted Time',
         add_rmse=False, add_mae=False, add_mae_perc=False, kind='reg',
-        res_dir=None, title=f'{model_name} predictions',
-        add_bounds=True
+        res_dir=None, title=f'{model_key} predictions',
+        add_bounds='surv' not in model_key
     )
