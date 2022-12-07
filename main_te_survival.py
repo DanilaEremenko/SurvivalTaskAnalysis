@@ -69,13 +69,6 @@ if __name__ == '__main__':
     test_df = pd.read_csv(exp_desc.test_file, index_col=0)
 
     # State is neccessary for event formation
-    new_train_df = pd.merge(left=train_df, right=src_df[['State']], left_index=True, right_index=True)
-    new_test_df = pd.merge(left=test_df, right=src_df[['State']], left_index=True, right_index=True)
-    assert Losses.r(new_train_df['ElapsedRaw'], train_df['ElapsedRaw']) == 1.0
-    assert Losses.r(new_test_df['ElapsedRaw'], test_df['ElapsedRaw']) == 1.0
-    train_df = new_train_df
-    test_df = new_test_df
-
     train_df = exp_desc.translate_func(train_df)
     test_df = exp_desc.translate_func(test_df)
 

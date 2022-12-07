@@ -40,6 +40,9 @@ if __name__ == '__main__':
     train_df = pd.read_csv(exp_desc.train_file)
     test_df = pd.read_csv(exp_desc.test_file)
 
+    train_df.drop(columns=['State'], inplace=True)
+    test_df.drop(columns=['State'], inplace=True)
+
     # initialize label encoders
     le_dict: Dict[str, LabelEncoder] = {
         key: LabelEncoder() for key in train_df.keys()
