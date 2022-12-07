@@ -63,7 +63,7 @@ if __name__ == '__main__':
     ################################################
     # ------------ data processing  ----------------
     ################################################
-    src_df = pd.read_csv('sk-full-data/full_data.csv')
+    src_df = pd.read_csv('sk-full-data/last_data/data.csv')
     train_df = pd.read_csv(exp_desc.train_file, index_col=0)
     test_df = pd.read_csv(exp_desc.test_file, index_col=0)
 
