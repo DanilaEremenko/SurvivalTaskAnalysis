@@ -14,12 +14,18 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 # load
 filt_df = pd.read_csv('sk-full-data/last_data/data.csv', index_col=0)
 areas_df = pd.read_csv('sk-full-data/last_data/areas.csv')
-res_dir = Path('sk-full-data/fair_ds_geov')
+res_dir = Path('sk-full-data/fair_ds_nogeov')
 res_dir.mkdir(exist_ok=True)
 
 # geovation drop | save
 print(f"filter geovation tasks {len(filt_df[filt_df['GroupID_scontrol'] == 'geovation(50218)']) / len(filt_df)}")
-filt_df = filt_df[filt_df['GroupID_scontrol'] == 'geovation(50218)']
+filt_df = filt_df[filt_df['GroupID_scontrol'] != 'geovation(50218)']
+
+# from lib.time_ranges import get_time_range_symb
+# filt_df.loc[:, 'time_elapsed_range'] = [get_time_range_symb(task_time=task_time)
+#                                         for task_time in list(filt_df['ElapsedRaw'])]
+#
+# {tr:len(filt_df[filt_df['time_elapsed_range']==tr])/len(filt_df) for tr in filt_df['time_elapsed_range'].unique()}
 
 # domains merge
 filt_df['GroupID'] = [group_trash.split('(')[0] for group_trash in filt_df['GroupID_scontrol']]
@@ -68,13 +74,13 @@ for key, le in le_dict.items():
     filt_df[key] = [str(val) for val in list(filt_df[key])]
     filt_df[key] = le.fit_transform(filt_df[key])
 
-norm_dict: Dict[str, LabelEncoder] = {
-    key: MinMaxScaler() for key in filt_df.keys()
-    # if is_numeric_dtype(filt_df[key])
-}
-
-for key, n in norm_dict.items():
-    filt_df[key] = n.fit_transform(np.array(filt_df[key]).reshape(-1, 1))
+# norm_dict: Dict[str, LabelEncoder] = {
+#     key: MinMaxScaler() for key in filt_df.keys()
+#     # if is_numeric_dtype(filt_df[key])
+# }
+#
+# for key, n in norm_dict.items():
+#     filt_df[key] = n.fit_transform(np.array(filt_df[key]).reshape(-1, 1))
 
 
 ########################################################################################################################
@@ -127,6 +133,9 @@ drop_group_of_keys(low_rf_importance_keys(), 'low importance in random forrest')
 # for key, le in le_dict.items():
 #     filt_df[key] = le.inverse_transform(filt_df[key])
 
+# filt_df['State'] = norm_dict['State'].inverse_transform(np.array(filt_df['State']).reshape(-1, 1))
+filt_df['State'] = filt_df['State'].astype(dtype=int)
+filt_df['State'] = le_dict['State'].inverse_transform(filt_df['State'])
 ########################################################################################################################
 # ------------------------------------------- split & save  ------------------------------------------------------------
 ########################################################################################################################
