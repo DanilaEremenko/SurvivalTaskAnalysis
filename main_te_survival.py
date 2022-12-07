@@ -24,7 +24,7 @@ def translate_func_simple(df: pd.DataFrame) -> pd.DataFrame:
     df.loc[:, 'event'] = 0
     df.loc[df['State'] == 'COMPLETED', 'event'] = 1
     df.loc[df['State'] == 'TIMEOUT', 'event'] = 1
-    # df.loc[random.choice(df.index), 'event'] = 0
+    df.loc[random.choice(df.index), 'event'] = 0
     return df
 
 
@@ -64,7 +64,6 @@ if __name__ == '__main__':
     ################################################
     # ------------ data processing  ----------------
     ################################################
-    src_df = pd.read_csv('sk-full-data/last_data/data.csv')
     train_df = pd.read_csv(exp_desc.train_file, index_col=0)
     test_df = pd.read_csv(exp_desc.test_file, index_col=0)
 
