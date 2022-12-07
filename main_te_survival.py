@@ -108,13 +108,13 @@ if __name__ == '__main__':
     # ################################################
     # -------------- search params -------------------
     # ################################################
-    res_list_df = build_scenarios(
-        x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
-        method='rsf'
-    )
-
-    res_list_df.sort_values('r', ascending=False, inplace=True)
-    res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
+    # res_list_df = build_scenarios(
+    #     x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
+    #     method='rsf'
+    # )
+    #
+    # res_list_df.sort_values('r', ascending=False, inplace=True)
+    # res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
     # ################################################
     # -------------- deep survival analyze -----------
     # ################################################
