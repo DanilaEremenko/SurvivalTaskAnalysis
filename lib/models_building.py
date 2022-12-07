@@ -52,7 +52,8 @@ def build_scenarios(
     res_list = []
 
     if method == 'rf':
-        common_args = {'n_estimators': [100, 250, 500], 'bootstrap': [False, True], 'max_features': [0.25, 0.5, 1.0],
+        common_args = {'n_estimators': [len(x_train) // ex_in_trees for ex_in_trees in (500, 1000)],
+                       'bootstrap': [True], 'max_features': [0.25, 0.5, 1.0],
                        'random_state': [42]}
         params_grid = [
             {'max_depth': [2, 4, 8], **common_args},
@@ -81,14 +82,15 @@ def build_scenarios(
         random.seed(42)
         test_subset_indexes = np.random.randint(low=0, high=len(x_test), size=10_000)
 
-        common_args = {'n_estimators': [100, 250, 500], 'bootstrap': [True], 'max_features': [0.25, 0.5],
-                       'max_samples': [0.01, 0.05], 'random_state': [42]}
+        common_args = {'n_estimators': [len(x_train) // ex_in_trees for ex_in_trees in (500, 1000)],
+                       'bootstrap': [True], 'max_features': [0.25, 0.5, 1.0],
+                       'max_samples': [0.01, 0.02], 'random_state': [42]}
         params_grid = [
             {'max_depth': [2, 4, 8], **common_args},
             {'min_samples_leaf': [2, 4, 8], **common_args}
         ]
         params_list = list(ParameterGrid(params_grid))
-        for i, args_dict in enumerate(params_list):
+        for i, args_dict in enumerate(params_list[:2]):
             print(f"fitting scenario {i}/{len(params_list)}")
 
             model = RandomSurvivalForest(**args_dict)
@@ -109,8 +111,9 @@ def build_scenarios(
             res_list.append(
                 {
                     'args_dict': json.dumps(args_dict),
-                    # 'c-val': model.score(X=x_test[:10_000], y=y_test[:10_000]),
                     'fit_predict_time': time.time() - start_time,
+                    # 'c-val': model.score(X=x_test[:10_000], y=y_test[:10_000]),
+                    # 'c-val': model.score(X=x_test, y=y_test),
                     'r': Losses.r(y=[y[1] for y in y_test[test_subset_indexes]], pred=y_test_pred)
                 }
             )
@@ -130,7 +133,6 @@ def build_scenarios(
             res_list.append(
                 {
                     'args_dict': json.dumps({'cl_lvl': cl_lvl}),
-                    # 'c-val': model.score(X=x_test[:10_000], y=y_test[:10_000]),
                     'fit_predict_time': time.time() - start_time,
                     'r': Losses.r(y=y_test, pred=y_test_pred)
                 }
