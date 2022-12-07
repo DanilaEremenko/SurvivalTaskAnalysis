@@ -30,7 +30,7 @@ if __name__ == '__main__':
     # ------------ exp descriptions  ---------------
     ################################################
     exp_desc = ExpRegDesc(
-        res_dir='full_cluster_based_elapsed_time (super fair)',
+        res_dir=f"full_cluster_based_elapsed_time ({str(EXP_PATH).split('_')[-1]})",
         train_file=f'{EXP_PATH}/k_means/train_clustered.csv',
         test_file=f'{EXP_PATH}/test.csv',
         y_key='ElapsedRaw'

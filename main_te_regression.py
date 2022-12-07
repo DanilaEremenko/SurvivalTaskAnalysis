@@ -29,7 +29,7 @@ if __name__ == '__main__':
     # ------------ exp descriptions  ---------------
     ################################################
     exp_desc = ExpRegDesc(
-        res_dir='full_reg_elapsed_time (super fair geov)',
+        res_dir=f"full_reg_elapsed_time ({str(EXP_PATH).split('_')[-1]})",
         train_file=f'{EXP_PATH}/train.csv',
         test_file=f'{EXP_PATH}/test.csv',
         y_key='ElapsedRaw'
