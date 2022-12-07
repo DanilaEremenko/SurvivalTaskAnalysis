@@ -12,6 +12,7 @@ from sklearn.preprocessing import LabelEncoder
 from typing import Dict, List
 
 from experiments import EXP_PATH, CL_MODE
+from lib.custom_models import ClusteringBasedModel
 from lib.drawing import draw_group_bars_and_boxes, draw_corr_sns, draw_pie_chart
 from lib.models_building import build_scenarios
 from lib.time_ranges import get_time_range_symb
@@ -61,30 +62,24 @@ if __name__ == '__main__':
     ################################################
     # ------------ search params -------------------
     ################################################
-    res_list_df = build_scenarios(
-        x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
-        method='cb',
-    )
-
-    res_list_df.sort_values('r', ascending=False, inplace=True)
-    res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
+    # res_list_df = build_scenarios(
+    #     x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
+    #     method='cb',
+    # )
+    #
+    # res_list_df.sort_values('r', ascending=False, inplace=True)
+    # res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
     ################################################
     # --- analyze model errors & dependencies  -----
     ################################################
-    # rf = RandomForestRegressor(
-    #     n_estimators=100,
-    #     # max_depth=max_depth,
-    #     min_samples_leaf=1,
-    #     max_features=0.25,
-    #     bootstrap=True,
-    #     n_jobs=4,
-    #     random_state=42
-    # )
-    # rf.fit(X=x_train, y=y_train)
-    # rf = load(f'{exp_desc.res_dir}/model.joblib')
-    #
-    # imp_df = pd.DataFrame({'feature': x_test.keys(), 'imp': rf.feature_importances_}) \
-    #     .sort_values('imp', ascending=False)
-    #
-    # y_pred = pd.DataFrame({'y_pred': rf.predict(x_test)})
-    # y_pred.to_csv(f'{EXP_PATH}/y_pred_reg.csv', index=False)
+    model = ClusteringBasedModel(
+        clust_key=f'cl_l{1}',
+        cluster_centroids=pd.read_csv(
+            f'{EXP_PATH}/clustering_{CL_MODE}/train_centroids_l{1}.csv',
+            index_col=0
+        )
+    )
+    model.fit(X=x_train, y=y_train)
+
+    y_pred = pd.DataFrame({'y_pred': model.predict(x_test)})
+    y_pred.to_csv(f'{EXP_PATH}/y_pred_cl_{CL_MODE}.csv', index=False)
