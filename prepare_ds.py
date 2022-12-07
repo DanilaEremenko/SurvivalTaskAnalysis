@@ -74,14 +74,6 @@ for key, le in le_dict.items():
     filt_df[key] = [str(val) for val in list(filt_df[key])]
     filt_df[key] = le.fit_transform(filt_df[key])
 
-# norm_dict: Dict[str, LabelEncoder] = {
-#     key: MinMaxScaler() for key in filt_df.keys()
-#     # if is_numeric_dtype(filt_df[key])
-# }
-#
-# for key, n in norm_dict.items():
-#     filt_df[key] = n.fit_transform(np.array(filt_df[key]).reshape(-1, 1))
-
 
 ########################################################################################################################
 # ------------------------------------ correlation & rf importance filtration ------------------------------------------
@@ -124,16 +116,10 @@ drop_group_of_keys(low_rf_importance_keys(), 'low importance in random forrest')
 ########################################################################################################################
 # ------------------------------- inverse categorical data & normalize transform ---------------------------------------
 ########################################################################################################################
-# norm_dict = {key: val for key, val in norm_dict.items() if key in filt_df.keys()}
-# for key, n in norm_dict.items():
-#     filt_df[key] = filt_df[key] = n.inverse_transform(np.array(filt_df[key]).reshape(-1, 1))
-#     filt_df[key] = filt_df[key].astype(dtype=int)
-#
 # le_dict = {key: val for key, val in le_dict.items() if key in filt_df.keys()}
 # for key, le in le_dict.items():
 #     filt_df[key] = le.inverse_transform(filt_df[key])
 
-# filt_df['State'] = norm_dict['State'].inverse_transform(np.array(filt_df['State']).reshape(-1, 1))
 filt_df['State'] = filt_df['State'].astype(dtype=int)
 filt_df['State'] = le_dict['State'].inverse_transform(filt_df['State'])
 ########################################################################################################################

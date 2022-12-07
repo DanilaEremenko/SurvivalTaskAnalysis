@@ -1,10 +1,10 @@
 import numpy as np
-from pandas.core.dtypes.common import is_string_dtype
+from pandas.core.dtypes.common import is_string_dtype, is_numeric_dtype
 import pandas as pd
 from pathlib import Path
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 import time
 
 from experiments import EXP_PATH
@@ -45,18 +45,31 @@ def cluster_df(df: pd.DataFrame, n_clusters: int):
     return k
 
 
-def rec_cluster(df: pd.DataFrame, centroids_dict: Dict[int, List]):
-    clust_levels = [int(key.split('_')[1][1:]) for key in df.keys() if 'cl_l' in key]
+def normalize_df(df: pd.DataFrame, norm_dict: Dict[str, LabelEncoder]):
+    for key, n in norm_dict.items():
+        df[key] = n.transform(np.array(df[key]).reshape(-1, 1))
 
-    if len(clust_levels) == 0:
+
+def inverse_df(df: pd.DataFrame, norm_dict: Dict[str, LabelEncoder]):
+    for key, n in norm_dict.items():
+        df[key] = df[key] = n.inverse_transform(np.array(df[key]).reshape(-1, 1))
+        df[key] = df[key].astype(dtype=int)
+
+
+def rec_cluster(df: pd.DataFrame, centroids_dict: Dict[int, List], norm_dict: Dict[str, LabelEncoder]):
+    normalize_df(df, norm_dict)
+
+    clust_levels = [int(key.split('_')[1][1:]) for key in df.keys() if 'cl_l' in key]
+    if len(clust_levels) == 0:  # first clustering
         k = cluster_df(df=df, n_clusters=2)
         df.loc[:, 'cl_l1'] = k.labels_
         for i in range(2):
             centroids_dict[i] = k.cluster_centers_[i]
+        centroids_df = centroids_dict_to_df(centroids_dict)
+        inverse_df(centroids_df, norm_dict)
+        centroids_df.to_csv(f'{CL_RES_DIR}/train_centroids_l1.csv')
 
-        centroids_dict_to_df(centroids_dict).to_csv(f'{CL_RES_DIR}/train_centroids_l1.csv')
-
-    else:
+    else:  # hierarchical clustering of current biggest cluster
         last_cl_lvl = max(clust_levels)
 
         last_cl_key = f'cl_l{last_cl_lvl}'
@@ -79,8 +92,11 @@ def rec_cluster(df: pd.DataFrame, centroids_dict: Dict[int, List]):
         del centroids_dict[biggest_clust_val]
         for i in range(2):
             centroids_dict[i + cl_val_shift] = k.cluster_centers_[i]
+        centroids_df = centroids_dict_to_df(centroids_dict)
+        inverse_df(centroids_df, norm_dict)
+        centroids_df.to_csv(f'{CL_RES_DIR}/train_centroids_l{last_cl_lvl + 1}.csv')
 
-        centroids_dict_to_df(centroids_dict).to_csv(f'{CL_RES_DIR}/train_centroids_l{last_cl_lvl + 1}.csv')
+    inverse_df(df, norm_dict)
 
 
 def centroids_dict_to_df(centroids_dict: Dict[int, List]) -> pd.DataFrame:
@@ -148,16 +164,23 @@ if __name__ == '__main__':
         filt_df[key] = le.fit_transform(filt_df[key])
 
     CLUST_KEYS = filt_df.keys()
+
+    norm_dict: Dict[str, LabelEncoder] = {
+        key: MinMaxScaler().fit(np.array(filt_df[key]).reshape(-1, 1))
+        for key in CLUST_KEYS
+        # if 'cl_l' not in key
+        # if is_numeric_dtype(filt_df[key])
+    }
     # -------------------------------------------------------------
     # ----------------- clustering & analyze ----------------------
     # -------------------------------------------------------------
     # filt_df = filt_df.iloc[:10_000]
     centroids_dict = {}
 
-    rec_cluster(filt_df, centroids_dict)
-    rec_cluster(filt_df, centroids_dict)
-    rec_cluster(filt_df, centroids_dict)
-    rec_cluster(filt_df, centroids_dict)
+    rec_cluster(filt_df, centroids_dict, norm_dict)
+    rec_cluster(filt_df, centroids_dict, norm_dict)
+    rec_cluster(filt_df, centroids_dict, norm_dict)
+    rec_cluster(filt_df, centroids_dict, norm_dict)
 
     # filt_df['cl_l0'] = 0
     stat_df = get_stat_df_by_key(filt_df, group_key='cl_l4')
@@ -170,10 +193,6 @@ if __name__ == '__main__':
     # [round(len(filt_df[filt_df['cl_l4'] == cl]) / len(filt_df), 2) for cl in filt_df['cl_l4'].unique()]
     # centroids_dict_to_df(centroids_dict)[['cl', 'ElapsedRaw']]
     # list(round(centroids_dict_to_df(centroids_dict)['ElapsedRaw'] / 3600, 2))
-
-    for key, le in le_dict.items():
-        print(f"back translating {key}")
-        filt_df[key] = le.inverse_transform(filt_df[key])
 
     res_df = pd.merge(left=df, right=filt_df[[key for key in filt_df if 'cl_l' in key]],
                       left_index=True, right_index=True)
