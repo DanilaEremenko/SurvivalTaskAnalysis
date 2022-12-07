@@ -5,6 +5,7 @@ from typing import List
 
 import numpy as np
 import pandas as pd
+from lightgbm import LGBMRegressor
 from sklearn.ensemble import RandomForestRegressor
 import sklearn.metrics as metrics
 from sklearn.model_selection import ParameterGrid
@@ -46,8 +47,21 @@ def get_event_time_manual(event_times: np.ndarray, probs: np.ndarray) -> List[fl
     return res_arr
 
 
+def assym_obj_fn(y_true, y_pred):
+    residual = (y_true - y_pred).astype("float")
+    grad = -2 * residual
+    hess = [2.0] * len(residual)
+    return grad, hess
+
+
+def assym_valid_fn(y_true, y_pred):
+    residual = (y_true - y_pred).astype("float")
+    loss = residual ** 2
+    return "custom_symmetric_eval", np.mean(loss), False
+
+
 def build_scenarios(
-        x_train, y_train, x_test, y_test,
+        x_train: pd.DataFrame, y_train: pd.Series, x_test: pd.DataFrame, y_test: pd.Series,
         method: str
 ) -> pd.DataFrame:
     res_list = []
@@ -77,15 +91,40 @@ def build_scenarios(
                     'r': Losses.r(pred=res_test_df['y_pred'], y=res_test_df['y_true'])
                 }
             )
+    elif method == 'lgbm':
+        common_args = {'n_estimators': [len(x_train) // ex_in_trees for ex_in_trees in (500, 1000)],
+                       'random_state': [42]}
+        params_grid = [
+            {'max_depth': [2, 4, 8, 16, 32], **common_args},
+            {'min_child_samples': [1, 2, 4, 8], **common_args}
+        ]
+        params_list = list(ParameterGrid(params_grid))
+        for i, args_dict in enumerate(params_list):
+            print(f"fitting scenario {i}/{len(params_list)}")
+
+            model = LGBMRegressor(**args_dict)
+            model.set_params(objective=assym_obj_fn)
+            model.fit(X=x_train.to_numpy(), y=y_train, eval_metric=assym_valid_fn)
+
+            print('testing')
+            res_test_df = get_reg_predictions_and_metrics_df(model=model, X=x_test, y=y_test)
+            mae = res_test_df['mae perc'].mean()
+            res_list.append(
+                {
+                    'args_dict': json.dumps(args_dict),
+                    'mae': mae,
+                    'r': Losses.r(pred=res_test_df['y_pred'], y=res_test_df['y_true'])
+                }
+            )
 
     elif method == 'rsf':
         # rsf predicts are working too long
         random.seed(42)
         test_subset_indexes = np.random.randint(low=0, high=len(x_test), size=10_000)
 
-        common_args = {'n_estimators': [100, 200],
+        common_args = {'n_estimators': [len(x_train) // ex_in_trees for ex_in_trees in (500, 1000)],
                        'bootstrap': [True], 'max_features': [0.25, 0.5, 1.0],
-                       'max_samples': [0.01], 'random_state': [42]}
+                       'max_samples': [500], 'random_state': [42]}
         params_grid = [
             {'max_depth': [2, 4, 8], **common_args},
             {'min_samples_leaf': [2, 4, 8], **common_args}
