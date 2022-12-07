@@ -171,7 +171,7 @@ class KMeansLU:
         )
         iter_i = 0
         for iter_i in range(self.max_iter):
-            print(f'iter = {iter_i}')
+            # print(f'iter = {iter_i}')
             self.iter_func(
                 X=X,
                 labels=self.labels_,
