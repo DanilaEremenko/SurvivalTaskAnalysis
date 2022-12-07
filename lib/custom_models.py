@@ -16,7 +16,7 @@ class ClusteringBasedModel:
 
     def fit_one_model(self, x_cl: pd.DataFrame, y_cl: np.ndarray) -> dict:
         common_args = {
-            'n_estimators': [len(x_cl) // 500, len(x_cl) // 250],
+            'n_estimators': [max(len(x_cl) // n_samples, 5) for n_samples in [250, 500]],
             'bootstrap': [True, False],
             'random_state': [42]
         }
@@ -76,6 +76,9 @@ class ClusteringBasedModel:
         for model_cluster, model_dict in self.models_dict.items():
             model = model_dict['model']
             model_indexes = id_to_cluster_df[id_to_cluster_df['cl'] == model_cluster].index
+            if len(model_indexes) == 0:
+                continue
+
             model_X = X.iloc[model_indexes]
             id_to_cluster_df.loc[model_indexes, 'y_pred'] = model.predict(model_X)
 
