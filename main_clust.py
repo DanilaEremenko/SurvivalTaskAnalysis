@@ -136,7 +136,7 @@ if __name__ == '__main__':
     # -------------------------------------------------------------
     df = pd.read_csv(f'{EXP_PATH}/train.csv', index_col=0)
     y_key = 'ElapsedRaw'
-    x_keys = [key for key in df.keys() if key != y_key]
+    x_keys = [key for key in df.keys() if key not in [y_key, 'State']]
     filt_df = df[[*x_keys, y_key]]
 
     le_dict: Dict[str, LabelEncoder] = {
@@ -175,4 +175,6 @@ if __name__ == '__main__':
         print(f"back translating {key}")
         filt_df[key] = le.inverse_transform(filt_df[key])
 
-    filt_df.to_csv(f'{CL_RES_DIR}/train_clustered.csv')
+    res_df = pd.merge(left=df, right=filt_df[[key for key in filt_df if 'cl_l' in key]],
+                      left_index=True, right_index=True)
+    res_df.to_csv(f'{CL_RES_DIR}/train_clustered.csv')
