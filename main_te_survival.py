@@ -20,7 +20,7 @@ from lib.models_building import build_scenarios, get_event_time_manual
 
 
 def translate_func_simple(df: pd.DataFrame) -> pd.DataFrame:
-    df = df[df['State'].isin(['COMPLETED', 'TIMEOUT', 'RUNNING'])].copy()
+    # TODO add correct processing for all events
     df.loc[:, 'event'] = 0
     df.loc[df['State'] == 'COMPLETED', 'event'] = 1
     df.loc[df['State'] == 'TIMEOUT', 'event'] = 1
@@ -116,23 +116,18 @@ if __name__ == '__main__':
     res_list_df.sort_values('r', ascending=False, inplace=True)
     res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
     # ################################################
-    # -------------- upload model --------------------
+    # -------------- deep survival analyze -----------
     # ################################################
     # rsf = load(f'{exp_desc.res_dir}/model.joblib')
     # rsf = RandomSurvivalForest(
-    #     n_estimators=100,
-    #     max_depth=1,
+    #     n_estimators=54,
     #     bootstrap=True,
-    #     max_samples=0.01,
+    #     max_samples=500,
+    #     min_samples_leaf=8,
     #     n_jobs=4,
     #     random_state=42
     # )
-    # print("fit best params..")
-    #
-    # start_fit_time = time.time()
     # rsf.fit(X=x_train, y=y_train)
-    #
-    # print(f"fit time = {time.time() - start_fit_time}")
     #
     # y_test_src_sorted = y_test_src.sort_values('ElapsedRaw')
     # # y_test_src_sel = pd.concat([y_test_src_sorted.iloc[:3], y_test_src_sorted.iloc[-3:]])
@@ -171,10 +166,21 @@ if __name__ == '__main__':
     #         ])
     #     }
     # )
-    # y_pred = pd.DataFrame(
-    #     {
-    #         'y_pred': rsf.predict(x_test)
-    #     }
-    # )
-    # print(f"predict time={time.time() - start_time}")
-    # y_pred.to_csv(f'{EXP_PATH}/y_pred_surv_small_trees.csv', index=False)
+    # ################################################
+    # -------------- made predictions ----------------
+    # ################################################
+    rsf = RandomSurvivalForest(
+        n_estimators=54,
+        bootstrap=True,
+        max_samples=500,
+        min_samples_leaf=8,
+        n_jobs=4,
+        random_state=42
+    )
+    rsf.fit(X=x_train, y=y_train)
+    y_pred = pd.DataFrame(
+        {
+            'y_pred': rsf.predict(x_test)
+        }
+    )
+    y_pred.to_csv(f'{EXP_PATH}/y_pred_surv.csv', index=False)
