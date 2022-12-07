@@ -6,12 +6,14 @@ from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 from sklearn.preprocessing import LabelEncoder
 import time
+
+from experiments import EXP_PATH
 from lib.time_ranges import get_time_range_symb
 from typing import Dict, List, Optional
 from lib.kmeans_lu import KMeansLU
 import matplotlib.pyplot as plt
 
-CL_RES_DIR = Path('sk-full-data/fair_ds/k_means')
+CL_RES_DIR = Path(f'{EXP_PATH}/k_means')
 CL_RES_DIR.mkdir(exist_ok=True)
 
 
@@ -132,7 +134,7 @@ if __name__ == '__main__':
     # -------------------------------------------------------------
     # ---------------------- data parsing -------------------------
     # -------------------------------------------------------------
-    df = pd.read_csv('sk-full-data/fair_ds/train.csv', index_col=0)
+    df = pd.read_csv(f'{EXP_PATH}/train.csv', index_col=0)
     y_key = 'ElapsedRaw'
     x_keys = [key for key in df.keys() if key != y_key]
     filt_df = df[[*x_keys, y_key]]
@@ -151,14 +153,16 @@ if __name__ == '__main__':
     # -------------------------------------------------------------
     # filt_df = filt_df.iloc[:10_000]
     centroids_dict = {}
+
     rec_cluster(filt_df, centroids_dict)
     rec_cluster(filt_df, centroids_dict)
     rec_cluster(filt_df, centroids_dict)
     rec_cluster(filt_df, centroids_dict)
 
+    # filt_df['cl_l0'] = 0
     stat_df = get_stat_df_by_key(filt_df, group_key='cl_l4')
 
-    draw_tsne_matplot(features_df=centroids_dict_to_df(centroids_dict))
+    # draw_tsne_matplot(features_df=centroids_dict_to_df(centroids_dict))
 
     # check clust dist
     # sorted([round(filt_df[filt_df['cl_l4'] == cl]['ElapsedRaw'].mean() / 3600, 2) for cl in filt_df['cl_l4'].unique()])

@@ -14,6 +14,7 @@ from sksurv.ensemble import RandomSurvivalForest
 from sksurv.util import Surv
 from joblib import dump, load
 
+from experiments import EXP_PATH
 from lib.losses import Losses
 from lib.models_building import build_scenarios, get_event_time_manual
 
@@ -50,9 +51,9 @@ if __name__ == '__main__':
     # ------------ exp descriptions  ---------------
     ################################################
     exp_desc = ExpSurvDesc(
-        res_dir='full_surv_elapsed_time (simple super fair)',
-        train_file='sk-full-data/fair_ds/train.csv',
-        test_file='sk-full-data/fair_ds/test.csv',
+        res_dir='full_surv_elapsed_time (simple super fair geov)',
+        train_file=f'{EXP_PATH}/train.csv',
+        test_file=f'{EXP_PATH}/test.csv',
         y_key='ElapsedRaw',
         event_key='event',
         translate_func=translate_func_simple
@@ -184,4 +185,4 @@ if __name__ == '__main__':
     #     }
     # )
     # print(f"predict time={time.time() - start_time}")
-    # y_pred.to_csv('sk-full-data/fair_ds/y_pred_surv_small_trees.csv', index=False)
+    # y_pred.to_csv(f'{EXP_PATH}/y_pred_surv_small_trees.csv', index=False)

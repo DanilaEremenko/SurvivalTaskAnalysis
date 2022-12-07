@@ -11,6 +11,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 from typing import Dict, List
 
+from experiments import EXP_PATH
 from lib.drawing import draw_group_bars_and_boxes, draw_corr_sns, draw_pie_chart
 from lib.models_building import build_scenarios
 from lib.time_ranges import get_time_range_symb
@@ -30,8 +31,8 @@ if __name__ == '__main__':
     ################################################
     exp_desc = ExpRegDesc(
         res_dir='full_cluster_based_elapsed_time (super fair)',
-        train_file='sk-full-data/fair_ds/k_means/train_clustered.csv',
-        test_file='sk-full-data/fair_ds/test.csv',
+        train_file=f'{EXP_PATH}/k_means/train_clustered.csv',
+        test_file=f'{EXP_PATH}/test.csv',
         y_key='ElapsedRaw'
     )
 
@@ -83,4 +84,4 @@ if __name__ == '__main__':
     #     .sort_values('imp', ascending=False)
     #
     # y_pred = pd.DataFrame({'y_pred': rf.predict(x_test)})
-    # y_pred.to_csv('sk-full-data/fair_ds/y_pred_reg.csv', index=False)
+    # y_pred.to_csv(f'{EXP_PATH}/y_pred_reg.csv', index=False)

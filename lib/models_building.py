@@ -10,6 +10,7 @@ import sklearn.metrics as metrics
 from sklearn.model_selection import ParameterGrid
 from sksurv.ensemble import RandomSurvivalForest
 
+from experiments import EXP_PATH
 from lib.custom_models import ClusteringBasedModel
 from lib.losses import Losses
 
@@ -82,9 +83,9 @@ def build_scenarios(
         random.seed(42)
         test_subset_indexes = np.random.randint(low=0, high=len(x_test), size=10_000)
 
-        common_args = {'n_estimators': [len(x_train) // ex_in_trees for ex_in_trees in (500, 1000)],
+        common_args = {'n_estimators': [100, 200],
                        'bootstrap': [True], 'max_features': [0.25, 0.5, 1.0],
-                       'max_samples': [0.01, 0.02], 'random_state': [42]}
+                       'max_samples': [0.01], 'random_state': [42]}
         params_grid = [
             {'max_depth': [2, 4, 8], **common_args},
             {'min_samples_leaf': [2, 4, 8], **common_args}
@@ -123,7 +124,7 @@ def build_scenarios(
             model = ClusteringBasedModel(
                 clust_key=f'cl_l{cl_lvl}',
                 cluster_centroids=pd.read_csv(
-                    f'sk-full-data/fair_ds/k_means/train_centroids_l{cl_lvl}.csv',
+                    f'{EXP_PATH}/k_means/train_centroids_l{cl_lvl}.csv',
                     index_col=0
                 )
             )
