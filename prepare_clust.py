@@ -16,13 +16,13 @@ from sklearn.manifold import TSNE
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 import time
 
-from experiments import EXP_PATH
+from experiments import EXP_PATH, CL_MODE
 from lib.time_ranges import get_time_range_symb
 from typing import Dict, List, Optional
 from lib.kmeans_lu import KMeansLU
 import matplotlib.pyplot as plt
 
-CL_RES_DIR = Path(f'{EXP_PATH}/k_means')
+CL_RES_DIR = Path(f'{EXP_PATH}/clustering_{CL_MODE}')
 CL_RES_DIR.mkdir(exist_ok=True)
 
 
@@ -48,8 +48,13 @@ def get_stat_df_by_key(df: pd.DataFrame, group_key: str) -> pd.DataFrame:
 
 def cluster_df(df: pd.DataFrame, n_clusters: int):
     time_start = time.time()
-    k = KMeans(n_clusters=n_clusters, random_state=42).fit(df[CLUST_KEYS].to_numpy())
-    # k = KMeansLU(n_clusters=n_clusters, random_state=42).fit(df.to_numpy())
+    if CL_MODE == 'km':
+        k = KMeans(n_clusters=n_clusters, random_state=42).fit(df[CLUST_KEYS].to_numpy())
+    elif CL_MODE == 'kmlu':
+        k = KMeansLU(n_clusters=n_clusters, random_state=42).fit(df.to_numpy())
+    else:
+        raise Exception(f"Unexpected clustering mode = {CL_MODE}")
+
     print(f"clustering time = {time.time() - time_start}")
     return k
 

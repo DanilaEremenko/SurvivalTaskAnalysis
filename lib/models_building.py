@@ -10,7 +10,7 @@ import sklearn.metrics as metrics
 from sklearn.model_selection import ParameterGrid
 from sksurv.ensemble import RandomSurvivalForest
 
-from experiments import EXP_PATH
+from experiments import EXP_PATH, CL_MODE
 from lib.custom_models import ClusteringBasedModel
 from lib.losses import Losses
 
@@ -124,10 +124,11 @@ def build_scenarios(
             model = ClusteringBasedModel(
                 clust_key=f'cl_l{cl_lvl}',
                 cluster_centroids=pd.read_csv(
-                    f'{EXP_PATH}/k_means/train_centroids_l{cl_lvl}.csv',
+                    f'{EXP_PATH}/clustering_{CL_MODE}/train_centroids_l{cl_lvl}.csv',
                     index_col=0
                 )
             )
+            print('predicting')
             start_time = time.time()
             model.fit(X=x_train, y=y_train)
             y_test_pred = model.predict(X=x_test)

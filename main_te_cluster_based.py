@@ -11,7 +11,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 from typing import Dict, List
 
-from experiments import EXP_PATH
+from experiments import EXP_PATH, CL_MODE
 from lib.drawing import draw_group_bars_and_boxes, draw_corr_sns, draw_pie_chart
 from lib.models_building import build_scenarios
 from lib.time_ranges import get_time_range_symb
@@ -30,8 +30,8 @@ if __name__ == '__main__':
     # ------------ exp descriptions  ---------------
     ################################################
     exp_desc = ExpRegDesc(
-        res_dir=f"full_cluster_based_elapsed_time ({str(EXP_PATH).split('_')[-1]})",
-        train_file=f'{EXP_PATH}/k_means/train_clustered.csv',
+        res_dir=f"full_cluster_{CL_MODE}_based_elapsed_time ({str(EXP_PATH).split('_')[-1]})",
+        train_file=f'{EXP_PATH}/clustering_{CL_MODE}/train_clustered.csv',
         test_file=f'{EXP_PATH}/test.csv',
         y_key='ElapsedRaw'
     )
