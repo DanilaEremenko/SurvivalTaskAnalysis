@@ -9,11 +9,14 @@ from sklearn.preprocessing import LabelEncoder
 
 filt_df = pd.read_csv('sk-full-data/last_data/data.csv', index_col=0)
 areas_df = pd.read_csv('sk-full-data/last_data/areas.csv')
-res_dir = Path('sk-full-data/fair_ds')
+res_dir = Path('sk-full-data/fair_ds_geov')
 res_dir.mkdir(exist_ok=True)
 
-print(f"filter geovation tasks {len(filt_df[filt_df['GroupID_scontrol'] != 'geovation(50218)']) / len(filt_df)}")
-filt_df = filt_df[filt_df['GroupID_scontrol'] != 'geovation(50218)']
+print(f"filter geovation tasks {len(filt_df[filt_df['GroupID_scontrol'] == 'geovation(50218)']) / len(filt_df)}")
+filt_df = filt_df[filt_df['GroupID_scontrol'] == 'geovation(50218)']
+
+filt_df['GroupID'] = [group_trash.split('(')[0] for group_trash in filt_df['GroupID_scontrol']]
+filt_df = pd.merge(left=filt_df, right=areas_df, left_on='GroupID', right_on='GroupID')
 
 ignored_keys = [
     'UserID', 'GroupID', 'JobID',
