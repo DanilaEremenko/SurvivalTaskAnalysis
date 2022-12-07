@@ -1,4 +1,13 @@
 import numpy as np
+import warnings
+
+# TODO I'm sorry but I'll remove it later
+
+from pandas.errors import SettingWithCopyWarning
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
+
 from pandas.core.dtypes.common import is_string_dtype, is_numeric_dtype
 import pandas as pd
 from pathlib import Path
@@ -47,13 +56,13 @@ def cluster_df(df: pd.DataFrame, n_clusters: int):
 
 def normalize_df(df: pd.DataFrame, norm_dict: Dict[str, LabelEncoder]):
     for key, n in norm_dict.items():
-        df[key] = n.transform(np.array(df[key]).reshape(-1, 1))
+        df.loc[:, key] = n.transform(np.array(df[key]).reshape(-1, 1))
 
 
 def inverse_df(df: pd.DataFrame, norm_dict: Dict[str, LabelEncoder]):
     for key, n in norm_dict.items():
-        df[key] = df[key] = n.inverse_transform(np.array(df[key]).reshape(-1, 1))
-        df[key] = df[key].astype(dtype=int)
+        df.loc[:, key] = n.inverse_transform(np.array(df[key]).reshape(-1, 1))
+        df.loc[:, key] = df[key].astype(dtype=int)
 
 
 def rec_cluster(df: pd.DataFrame, centroids_dict: Dict[int, List], norm_dict: Dict[str, LabelEncoder]):
