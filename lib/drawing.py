@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Optional
 
+import matplotlib
 import plotly.express as px
 import pandas as pd
 import seaborn as sns
@@ -15,6 +16,18 @@ from lib.losses import Losses
 
 def get_random_color() -> str:
     return "#" + ''.join([random.choice('ABCDEF0123456789') for i in range(6)])
+
+
+def draw_df_as_image(df, title: str, path=None):
+    sns.heatmap(df, annot=True, cmap="crest", cbar=False)
+    plt.title(title)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    if path is not None:
+        plt.savefig(path)
+        plt.clf()
+    else:
+        plt.show()
 
 
 def draw_group_bars_and_boxes(df: pd.DataFrame, group_key: str, y_key: str, res_path: str):
