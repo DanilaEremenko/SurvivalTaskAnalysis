@@ -18,14 +18,16 @@ from sklearn.manifold import TSNE
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 import time
 
-from experiments import EXP_PATH, CL_MODE
+from experiments import EXP_PATH, CL_MODE, CL_DIR
 from lib.time_ranges import get_time_range_symb
 from typing import Dict, List, Optional
 from lib.kmeans_lu import KMeansLU
 import matplotlib.pyplot as plt
 
-CL_RES_DIR = Path(f'{EXP_PATH}/clustering_{CL_MODE}')
+CL_RES_DIR = Path(f'{EXP_PATH}/clustering_{CL_MODE}_{CL_DIR}')
 CL_RES_DIR.mkdir(exist_ok=True)
+
+WITH_NORMALIZATION = False
 
 
 def get_stat_df_by_key(df: pd.DataFrame, group_key: str) -> pd.DataFrame:
@@ -62,14 +64,16 @@ def cluster_df(df: pd.DataFrame, n_clusters: int):
 
 
 def normalize_df(df: pd.DataFrame, norm_dict: Dict[str, LabelEncoder]):
-    for key, n in norm_dict.items():
-        df.loc[:, key] = n.transform(np.array(df[key]).reshape(-1, 1))
+    if WITH_NORMALIZATION:
+        for key, n in norm_dict.items():
+            df.loc[:, key] = n.transform(np.array(df[key]).reshape(-1, 1))
 
 
 def inverse_df(df: pd.DataFrame, norm_dict: Dict[str, LabelEncoder]):
-    for key, n in norm_dict.items():
-        df.loc[:, key] = n.inverse_transform(np.array(df[key]).reshape(-1, 1))
-        df.loc[:, key] = df[key].astype(dtype=int)
+    if WITH_NORMALIZATION:
+        for key, n in norm_dict.items():
+            df.loc[:, key] = n.inverse_transform(np.array(df[key]).reshape(-1, 1))
+            df.loc[:, key] = df[key].astype(dtype=int)
 
 
 def print_one_cl_dist(df: pd.DataFrame):
@@ -86,7 +90,7 @@ def print_tasks_dist(df: pd.DataFrame, cl_key: Optional[str] = None):
         print(f"----------- tasks distribution by {cl_key} -----------------------")
         for i, cl_name in enumerate(df[cl_key].unique()):
             curr_cl_df = df[df[cl_key] == cl_name]
-            print(f'cl part = {len(curr_cl_df) / len(df):.2f}')
+            print(f'cl size = {len(curr_cl_df)} ({100 * len(curr_cl_df) / len(df):.2f}%)')
             print_one_cl_dist(df=curr_cl_df)
             print()
     else:
@@ -143,6 +147,24 @@ def rec_cluster(df: pd.DataFrame, centroids_dict: Dict[int, List], norm_dict: Di
 
     inverse_df(df, norm_dict)
 
+    print_tasks_dist(df=df, cl_key=next_cl_key)
+
+
+def flat_cluster(df: pd.DataFrame, norm_dict: Dict[str, LabelEncoder]):
+    normalize_df(df, norm_dict)
+    cl_pref = 'cl_l'
+    clust_levels = [int(key.split('_')[1][1:]) for key in df.keys() if 'cl_l' in key]
+    print(f"------------------------- clustering step {len(clust_levels) + 1} ------------------------")
+    next_cl_key = f'{cl_pref}{len(clust_levels) + 1}'
+
+    n_clusters = len(clust_levels) + 2
+    k = cluster_df(df=df, n_clusters=n_clusters)
+    df.loc[:, next_cl_key] = k.labels_
+    centroids_df = centroids_dict_to_df(centroids_dict={i: k.cluster_centers_[i] for i in range(n_clusters)})
+    inverse_df(centroids_df, norm_dict)
+    centroids_df.to_csv(f'{CL_RES_DIR}/train_centroids_l{len(clust_levels) + 1}.csv')
+
+    inverse_df(df, norm_dict)
     print_tasks_dist(df=df, cl_key=next_cl_key)
 
 
@@ -226,7 +248,12 @@ if __name__ == '__main__':
     print_tasks_dist(df=filt_df)
     n_splits = 4
     for i in range(n_splits):
-        rec_cluster(filt_df, centroids_dict, norm_dict)
+        if CL_DIR == 'recurs':
+            rec_cluster(filt_df, centroids_dict, norm_dict)
+        elif CL_DIR == 'flat':
+            flat_cluster(filt_df, norm_dict)
+        else:
+            raise Exception(f"Unexpected clust direction = {CL_DIR}")
 
     # filt_df['cl_l0'] = 0
     # stat_df = get_stat_df_by_key(filt_df, group_key='cl_l4')
