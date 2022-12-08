@@ -24,8 +24,8 @@ def weighted_dist_python(p1: np.ndarray, p2: np.ndarray) -> float:
 def weighted_dist_numba(p1: List[float], p2: List[float]) -> float:
     res_dist = 0
     for i in range(len(p1) - 1):
-        res_dist += 0.25 * (p1[i] - p2[i]) ** 2
-    res_dist += 0.75 * (p1[-1] - p2[-1]) ** 2
+        res_dist += 0.1 * (p1[i] - p2[i]) ** 2
+    res_dist += 0.9 * (p1[-1] - p2[-1]) ** 2
     return res_dist
 
 
