@@ -1,3 +1,5 @@
+from collections import Counter
+
 import numpy as np
 import warnings
 
@@ -55,7 +57,7 @@ def cluster_df(df: pd.DataFrame, n_clusters: int):
     else:
         raise Exception(f"Unexpected clustering mode = {CL_MODE}")
 
-    print(f"clustering time = {time.time() - time_start}")
+    print(f"clustering time = {time.time() - time_start:.2f}")
     return k
 
 
@@ -70,13 +72,39 @@ def inverse_df(df: pd.DataFrame, norm_dict: Dict[str, LabelEncoder]):
         df.loc[:, key] = df[key].astype(dtype=int)
 
 
+def print_one_cl_dist(df: pd.DataFrame):
+    cl_dist = dict(Counter([get_time_range_symb(task_time=task_time)
+                            for task_time in list(df['ElapsedRaw'])]))
+    cl_dist_df = pd.DataFrame({'time_range': cl_dist.keys(), 'tasks(%)': cl_dist.values()}) \
+        .sort_values('time_range', ascending=True)
+    cl_dist_df['tasks(%)'] /= len(df)
+    print(f'classes distribution in cluster: \n{cl_dist_df.round(2)}')
+
+
+def print_tasks_dist(df: pd.DataFrame, cl_key: Optional[str] = None):
+    if cl_key is not None:
+        print(f"----------- tasks distribution by {cl_key} -----------------------")
+        for i, cl_name in enumerate(df[cl_key].unique()):
+            curr_cl_df = df[df[cl_key] == cl_name]
+            print(f'cl part = {len(curr_cl_df) / len(df):.2f}')
+            print_one_cl_dist(df=curr_cl_df)
+            print()
+    else:
+        print(f"----------- all tasks distribution by {cl_key} -------------------")
+        print_one_cl_dist(df=df)
+        print()
+
+
 def rec_cluster(df: pd.DataFrame, centroids_dict: Dict[int, List], norm_dict: Dict[str, LabelEncoder]):
     normalize_df(df, norm_dict)
 
     clust_levels = [int(key.split('_')[1][1:]) for key in df.keys() if 'cl_l' in key]
+    print(f"------------------------- clustering step {len(clust_levels) + 1} ------------------------")
+
     if len(clust_levels) == 0:  # first clustering
+        next_cl_key = 'cl_l1'
         k = cluster_df(df=df, n_clusters=2)
-        df.loc[:, 'cl_l1'] = k.labels_
+        df.loc[:, next_cl_key] = k.labels_
         for i in range(2):
             centroids_dict[i] = k.cluster_centers_[i]
         centroids_df = centroids_dict_to_df(centroids_dict)
@@ -95,15 +123,18 @@ def rec_cluster(df: pd.DataFrame, centroids_dict: Dict[int, List], norm_dict: Di
              for cl_val in df[last_cl_key].unique()]
         ).sort_values('cl_part', ascending=False).reset_index()
         cl_val_shift = cl_dist_df['cl_val'].max() + 1
-        biggest_clust_val, biggest_clust_part = cl_dist_df.iloc[0][['cl_val', 'cl_part']]
+        biggest_clust_key, biggest_clust_part = cl_dist_df.iloc[0][['cl_val', 'cl_part']]
+        smallest_clust_key, smallest_clust_part = cl_dist_df.iloc[-1][['cl_val', 'cl_part']]
 
-        print('splitting')
-        print(f'biggest clust key  = {biggest_clust_val}')
-        print(f'biggest clust part = {round(biggest_clust_part, 2)}')
+        print('splitting biggest clust')
+        print(f'biggest clust key  = {biggest_clust_key}')
+        print(f'biggest clust part = {biggest_clust_part:.2f}')
+        print(f'smallest clust key  = {smallest_clust_key}')
+        print(f'smallest clust part = {smallest_clust_part:.2f}')
 
-        k = cluster_df(df=df[df[last_cl_key] == biggest_clust_val], n_clusters=2)
-        df.loc[df[df[last_cl_key] == biggest_clust_val].index, next_cl_key] = k.labels_ + cl_val_shift
-        del centroids_dict[biggest_clust_val]
+        k = cluster_df(df=df[df[last_cl_key] == biggest_clust_key], n_clusters=2)
+        df.loc[df[df[last_cl_key] == biggest_clust_key].index, next_cl_key] = k.labels_ + cl_val_shift
+        del centroids_dict[biggest_clust_key]
         for i in range(2):
             centroids_dict[i + cl_val_shift] = k.cluster_centers_[i]
         centroids_df = centroids_dict_to_df(centroids_dict)
@@ -111,6 +142,8 @@ def rec_cluster(df: pd.DataFrame, centroids_dict: Dict[int, List], norm_dict: Di
         centroids_df.to_csv(f'{CL_RES_DIR}/train_centroids_l{last_cl_lvl + 1}.csv')
 
     inverse_df(df, norm_dict)
+
+    print_tasks_dist(df=df, cl_key=next_cl_key)
 
 
 def centroids_dict_to_df(centroids_dict: Dict[int, List]) -> pd.DataFrame:
@@ -190,14 +223,13 @@ if __name__ == '__main__':
     # -------------------------------------------------------------
     # filt_df = filt_df.iloc[:10_000]
     centroids_dict = {}
-
-    rec_cluster(filt_df, centroids_dict, norm_dict)
-    rec_cluster(filt_df, centroids_dict, norm_dict)
-    rec_cluster(filt_df, centroids_dict, norm_dict)
-    rec_cluster(filt_df, centroids_dict, norm_dict)
+    print_tasks_dist(df=filt_df)
+    n_splits = 4
+    for i in range(n_splits):
+        rec_cluster(filt_df, centroids_dict, norm_dict)
 
     # filt_df['cl_l0'] = 0
-    stat_df = get_stat_df_by_key(filt_df, group_key='cl_l4')
+    # stat_df = get_stat_df_by_key(filt_df, group_key='cl_l4')
 
     # draw_tsne_matplot(features_df=centroids_dict_to_df(centroids_dict))
 
