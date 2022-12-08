@@ -51,7 +51,7 @@ if __name__ == '__main__':
     # ------------ exp descriptions  ---------------
     ################################################
     exp_desc = ExpSurvDesc(
-        res_dir=f"full_surv_elapsed_time ({str(EXP_PATH).split('_')[-1]})",
+        res_dir=f"{EXP_PATH}/psearch_surv_elapsed_time",
         train_file=f'{EXP_PATH}/train.csv',
         test_file=f'{EXP_PATH}/test.csv',
         y_key='ElapsedRaw',

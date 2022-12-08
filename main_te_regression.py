@@ -31,7 +31,7 @@ if __name__ == '__main__':
     ################################################
     reg_method = 'rf'
     exp_desc = ExpRegDesc(
-        res_dir=f"full_reg_{reg_method}_elapsed_time ({str(EXP_PATH).split('_')[-1]})",
+        res_dir=f"{EXP_PATH}/psearch_reg_{reg_method}_elapsed_time",
         train_file=f'{EXP_PATH}/train.csv',
         test_file=f'{EXP_PATH}/test.csv',
         y_key='ElapsedRaw'
