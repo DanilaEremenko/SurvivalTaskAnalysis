@@ -129,11 +129,12 @@ def build_scenarios(
         test_subset_indexes = np.random.randint(low=0, high=len(x_test), size=10_000)
 
         common_args = {'n_estimators': [len(x_train) // ex_in_trees for ex_in_trees in (500, 1000)],
-                       'bootstrap': [True], 'max_features': [0.25, 0.5, 1.0],
+                       'bootstrap': [True], 'max_features': [1.0],
                        'max_samples': [500], 'random_state': [42]}
         params_grid = [
-            {'max_depth': [2, 4, 8], **common_args},
-            {'min_samples_leaf': [2, 4, 8], **common_args}
+            # {'max_depth': [2, 4, 8], **common_args},
+            # {'min_samples_leaf': [2, 4, 8], **common_args},
+            {'min_samples_leaf': [2, 4, 8], 'max_depth': [10], **common_args},
         ]
         params_list = list(ParameterGrid(params_grid))
         for i, args_dict in enumerate(params_list):
