@@ -86,16 +86,14 @@ for gt_limit in src_df['time_elapsed_range'].unique():
 
 confusion_matrixes = {key: val.astype(float) for key, val in confusion_matrixes.items()}
 confusion_df = pd.DataFrame(confusion_df).sort_values(['y_true', 'y_predicted'], ascending=False)
-for model_name, matrix_df in confusion_matrixes.items():
-    draw_df_as_image(df=matrix_df, title=model_name)
-#
-# for model_dict in compared_models:
-#     model_key = model_dict['model_name']
-#     draw_corr_sns(
-#         group_df=src_df,
-#         x_key='ElapsedRaw', y_key=model_key,
-#         x_title='Elapsed Time', y_title=f'Predicted Time',
-#         add_rmse=False, add_mae=False, add_mae_perc=False, kind='reg',
-#         res_dir=None, title=f'{model_key} predictions',
-#         add_bounds='surv' not in model_key
-#     )
+
+for model_key, matrix_df in confusion_matrixes.items():
+    draw_corr_sns(
+        group_df=src_df,
+        x_key='ElapsedRaw', y_key=model_key,
+        x_title='Elapsed Time', y_title=f'Predicted Time',
+        add_rmse=False, add_mae=False, add_mae_perc=False, kind='reg',
+        res_dir=None, title=f'{model_key} predictions',
+        add_bounds='surv' not in model_key
+    )
+    draw_df_as_image(df=matrix_df, title=model_key)
