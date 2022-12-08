@@ -91,7 +91,7 @@ for model_key, matrix_df in confusion_matrixes.items():
     draw_corr_sns(
         group_df=src_df,
         x_key='ElapsedRaw', y_key=model_key,
-        x_title='Elapsed Time', y_title=f'Predicted Time',
+        x_title='Elapsed Time', y_title=f'Risk Score' if 'surv' in model_key else f'Predicted Time',
         add_rmse=False, add_mae=False, add_mae_perc=False, kind='reg',
         res_dir=None, title=f'{model_key} predictions',
         add_bounds='surv' not in model_key
