@@ -1,46 +1,59 @@
-import json
-from datetime import timedelta
-
 from pathlib import Path
+from typing import List, Dict
+
 import pandas as pd
-from joblib import load, dump
-from pandas.api.types import is_string_dtype
-from pandas.core.dtypes.common import is_numeric_dtype
-
-from sklearn.ensemble import RandomForestRegressor
+from pandas.core.dtypes.common import is_string_dtype
 from sklearn.preprocessing import LabelEncoder
-from typing import Dict, List
-
+from sksurv.util import Surv
 from experiments import EXP_PATH, CL_MODE
 from lib.custom_models import ClusteringBasedModel
-from lib.drawing import draw_group_bars_and_boxes, draw_corr_sns, draw_pie_chart
+from lib.custom_survival_funcs import translate_censored_data
+from lib.losses import Losses
 from lib.models_building import build_scenarios
-from lib.time_ranges import get_time_range_symb
 
 
-class ExpRegDesc:
-    def __init__(self, res_dir: str, train_file: str, test_file: str, y_key: str):
+class ExpSurvDesc:
+    def __init__(
+            self,
+            res_dir: str,
+            train_file: str,
+            test_file: str,
+            y_key: str,
+            event_key: str,
+            translate_func
+    ):
         self.res_dir = Path(res_dir)
         self.train_file = train_file
         self.test_file = test_file
         self.y_key = y_key
+        self.event_key = event_key
+        self.translate_func = translate_func
 
 
 if __name__ == '__main__':
     ################################################
     # ------------ exp descriptions  ---------------
     ################################################
-    exp_desc = ExpRegDesc(
-        res_dir=f"{EXP_PATH}/psearch_cluster_{CL_MODE}_based_elapsed_time",
-        train_file=f'{EXP_PATH}/clustering_{CL_MODE}/train_clustered.csv',
+    exp_desc = ExpSurvDesc(
+        res_dir=f"{EXP_PATH}/psearch_surv_elapsed_time",
+        train_file=f'{EXP_PATH}/train.csv',
         test_file=f'{EXP_PATH}/test.csv',
-        y_key='ElapsedRaw'
+        y_key='ElapsedRaw',
+        event_key='event',
+        translate_func=translate_censored_data
     )
 
     exp_desc.res_dir.mkdir(exist_ok=True)
 
-    train_df = pd.read_csv(exp_desc.train_file, index_col=0).reset_index(drop=True)
-    test_df = pd.read_csv(exp_desc.test_file, index_col=0).reset_index(drop=True)
+    ################################################
+    # ------------ data processing  ----------------
+    ################################################
+    train_df = pd.read_csv(exp_desc.train_file, index_col=0)
+    test_df = pd.read_csv(exp_desc.test_file, index_col=0)
+
+    # State is neccessary for event formation
+    train_df = exp_desc.translate_func(train_df)
+    test_df = exp_desc.translate_func(test_df)
 
     train_df.drop(columns=['State'], inplace=True)
     test_df.drop(columns=['State'], inplace=True)
@@ -48,20 +61,28 @@ if __name__ == '__main__':
     # initialize label encoders
     le_dict: Dict[str, LabelEncoder] = {
         key: LabelEncoder() for key in train_df.keys()
-        if not is_numeric_dtype(train_df[key])
+        if is_string_dtype(train_df[key])
     }
 
+    x_train = train_df.drop(columns=[exp_desc.y_key, exp_desc.event_key])
+    y_train_src = train_df[[exp_desc.y_key, exp_desc.event_key]]
+
+    x_test = test_df.drop(columns=[exp_desc.y_key, exp_desc.event_key])
+    y_test_src = test_df[[exp_desc.y_key, exp_desc.event_key]]
+
     for key, le in le_dict.items():
-        le.fit(pd.concat([train_df[key], test_df[key]]))
-        train_df[key] = le.transform(train_df[key])
-        test_df[key] = le.transform(test_df[key])
+        x_train[key] = le.fit_transform(x_train[key])
+        x_test[key] = le.fit_transform(x_test[key])
 
-    x_train, y_train = train_df.drop(columns=[exp_desc.y_key]), train_df[exp_desc.y_key]
-    x_test, y_test = test_df.drop(columns=[exp_desc.y_key]), test_df[exp_desc.y_key]
+    # x_all = x_all.iloc[:1_000]
+    # y_all_tr = y_all_tr[:1_000]
 
-    ################################################
-    # ------------ search params -------------------
-    ################################################
+    y_train = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_train_src)
+    y_test = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_test_src)
+
+    # ################################################
+    # -------------- search params -------------------
+    # ################################################
     # res_list_df = build_scenarios(
     #     x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
     #     method='cb',

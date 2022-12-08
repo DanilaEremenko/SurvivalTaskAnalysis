@@ -15,17 +15,9 @@ from sksurv.util import Surv
 from joblib import dump, load
 
 from experiments import EXP_PATH
+from lib.custom_survival_funcs import translate_censored_data
 from lib.losses import Losses
-from lib.models_building import build_scenarios, get_event_time_manual
-
-
-def translate_func_simple(df: pd.DataFrame) -> pd.DataFrame:
-    # TODO add correct processing for all events
-    df.loc[:, 'event'] = 0
-    df.loc[df['State'] == 'COMPLETED', 'event'] = 1
-    df.loc[df['State'] == 'TIMEOUT', 'event'] = 1
-    df.loc[random.choice(df.index), 'event'] = 0
-    return df
+from lib.models_building import build_scenarios
 
 
 class ExpSurvDesc:
@@ -56,7 +48,7 @@ if __name__ == '__main__':
         test_file=f'{EXP_PATH}/test.csv',
         y_key='ElapsedRaw',
         event_key='event',
-        translate_func=translate_func_simple
+        translate_func=translate_censored_data
     )
 
     exp_desc.res_dir.mkdir(exist_ok=True)
