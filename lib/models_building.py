@@ -71,11 +71,13 @@ def build_scenarios(
 
     if method == 'rf':
         common_args = {'n_estimators': [len(x_train) // ex_in_trees for ex_in_trees in (500, 1000)],
-                       'bootstrap': [True], 'max_features': [0.25, 0.5, 1.0],
+                       'bootstrap': [True], 'max_features': [0.5, 1.0],
                        'random_state': [42]}
         params_grid = [
-            {'max_depth': [2, 4, 8], **common_args},
-            {'min_samples_leaf': [2, 4, 8], **common_args}
+            # {'max_depth': [2, 4, 8], **common_args},
+            # {'min_samples_leaf': [1, 2, 4, 8], **common_args},
+            {'min_samples_leaf': [1, 2, 4, 8], 'max_depth': [10, 20, 30], **common_args},
+
         ]
         params_list = list(ParameterGrid(params_grid))
         for i, args_dict in enumerate(params_list):
@@ -98,8 +100,9 @@ def build_scenarios(
         common_args = {'n_estimators': [len(x_train) // ex_in_trees for ex_in_trees in (500, 1000)],
                        'random_state': [42]}
         params_grid = [
-            {'max_depth': [2, 4, 8, 16, 32], **common_args},
-            {'min_child_samples': [1, 2, 4, 8], **common_args}
+            # {'max_depth': [2, 4, 8, 16, 32], **common_args},
+            # {'min_child_samples': [1, 2, 4, 8], **common_args}
+            {'min_child_samples': [1, 2, 4, 8], 'max_depth': [10, 20, 30, 40, 50], **common_args},
         ]
         params_list = list(ParameterGrid(params_grid))
         for i, args_dict in enumerate(params_list):
