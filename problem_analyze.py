@@ -1,6 +1,6 @@
 import pandas as pd
 
-from experiments import EXP_PATH
+from experiments import EXP_PATH, CL_DIR, CL_MODE
 from lib.drawing import draw_corr_sns, draw_df_as_image
 from lib.time_ranges import get_time_range_symb, TIME_RANGES
 import matplotlib
@@ -32,7 +32,7 @@ compared_models = [
     },
     {
         'model_name': 'cl+reg rf',
-        'pred_path': f'{EXP_PATH}/y_pred_cl_kmlu.csv'
+        'pred_path': f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}.csv'
     }
 ]
 
@@ -90,10 +90,10 @@ confusion_df = pd.DataFrame(confusion_df).sort_values(['y_true', 'y_predicted'],
 for model_key, matrix_df in confusion_matrixes.items():
     draw_corr_sns(
         group_df=src_df,
-        x_key='ElapsedRaw', y_key=model_key,
-        x_title='Elapsed Time', y_title=f'Risk Score' if 'surv' in model_key else f'Predicted Time',
+        y_key='ElapsedRaw', x_key=model_key,
+        y_title='Elapsed Time', x_title='Predicted Time',
         add_rmse=False, add_mae=False, add_mae_perc=False, kind='reg',
         res_dir=None, title=f'{model_key} predictions',
-        add_bounds='surv' not in model_key
+        add_bounds=True
     )
     draw_df_as_image(df=matrix_df, title=model_key)
