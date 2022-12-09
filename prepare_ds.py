@@ -12,14 +12,14 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 # ------------------------------------ loading & merging ---------------------------------------------------------------
 ########################################################################################################################
 # load
-filt_df = pd.read_csv('sk-full-data/last_data/data.csv', index_col=0)
+src_df = pd.read_csv('sk-full-data/last_data/data.csv', index_col=0)
 areas_df = pd.read_csv('sk-full-data/last_data/areas.csv')
 res_dir = Path('sk-full-data/fair_ds_nogeov')
 res_dir.mkdir(exist_ok=True)
 
 # geovation drop | save
-print(f"filter geovation tasks {len(filt_df[filt_df['GroupID_scontrol'] == 'geovation(50218)']) / len(filt_df)}")
-filt_df = filt_df[filt_df['GroupID_scontrol'] != 'geovation(50218)']
+print(f"filter geovation tasks {len(src_df[src_df['GroupID_scontrol'] != 'geovation(50218)']) / len(src_df)}")
+filt_df = src_df[src_df['GroupID_scontrol'] != 'geovation(50218)']
 
 # from lib.time_ranges import get_time_range_symb
 # filt_df.loc[:, 'time_elapsed_range'] = [get_time_range_symb(task_time=task_time)
@@ -28,8 +28,8 @@ filt_df = filt_df[filt_df['GroupID_scontrol'] != 'geovation(50218)']
 # {tr:len(filt_df[filt_df['time_elapsed_range']==tr])/len(filt_df) for tr in filt_df['time_elapsed_range'].unique()}
 
 # domains merge
-filt_df['GroupID'] = [group_trash.split('(')[0] for group_trash in filt_df['GroupID_scontrol']]
-filt_df = pd.merge(left=filt_df, right=areas_df, left_on='GroupID', right_on='GroupID')
+# filt_df['GroupID'] = [group_trash.split('(')[0] for group_trash in filt_df['GroupID_scontrol']]
+# filt_df = pd.merge(left=filt_df, right=areas_df, left_on='GroupID', right_on='GroupID')
 
 filt_df = filt_df[sorted(filt_df.keys())]
 ########################################################################################################################
@@ -125,7 +125,13 @@ filt_df['State'] = le_dict['State'].inverse_transform(filt_df['State'])
 ########################################################################################################################
 # ------------------------------------------- split & save  ------------------------------------------------------------
 ########################################################################################################################
-train_df, test_df = train_test_split(filt_df, test_size=0.33, random_state=42)
+filt_df = pd.merge(left=filt_df, right=src_df[['SubmitTime']], left_index=True, right_index=True)
+train_df = filt_df[filt_df['SubmitTime'] < '2022-10-17T00:00:00'].drop(columns='SubmitTime')
+test_df = filt_df[filt_df['SubmitTime'] >= '2022-10-17T00:00:00'].drop(columns='SubmitTime')
+print(f'train part = {len(train_df) / len(filt_df):.2f}')
+print(f'test part = {len(test_df) / len(filt_df):.2f}')
+
+# train_df, test_df = train_test_split(filt_df, test_size=0.33, random_state=42)
 
 train_df.to_csv(f'{res_dir}/train.csv')
 test_df.to_csv(f'{res_dir}/test.csv')
