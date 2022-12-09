@@ -161,16 +161,8 @@ if __name__ == '__main__':
     # ################################################
     # -------------- made predictions ----------------
     # ################################################
-    # rsf = RandomSurvivalForest(
-    #     # n_estimators=54,
-    #     n_estimators=262,
-    #     bootstrap=True,
-    #     max_samples=500,
-    #     max_depth=10,
-    #     min_samples_leaf=8,
-    #     n_jobs=4,
-    #     random_state=42
-    # )
+    # best_params = json.loads(pd.read_csv(f'{exp_desc.res_dir}/res_full_search.csv').iloc[0]['args_dict'])
+    # rsf = RandomSurvivalForest(**best_params)
     # rsf.fit(X=x_train, y=y_train)
     # y_pred = pd.DataFrame(
     #     {

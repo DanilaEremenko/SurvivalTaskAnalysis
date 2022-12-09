@@ -71,24 +71,12 @@ if __name__ == '__main__':
     ################################################
     # --- analyze model errors & dependencies  -----
     ################################################
+    # best_params = json.loads(pd.read_csv(f'{exp_desc.res_dir}/res_full_search.csv').iloc[0]['args_dict'])
     # if reg_method == 'rf':
-    #     model = RandomForestRegressor(
-    #         n_estimators=100,
-    #         max_depth=10,
-    #         # n_estimators=262,
-    #         # min_samples_leaf=2,
-    #         max_features=1.0,
-    #         bootstrap=True,
-    #         n_jobs=4,
-    #         random_state=42
-    #     )
+    #     model = RandomForestRegressor(**best_params)
     #     model.fit(X=x_train.to_numpy(), y=y_train)
     # elif reg_method == 'lgbm':
-    #     model = LGBMRegressor(
-    #         n_estimators=70,
-    #         min_child_samples=1,
-    #         random_state=42
-    #     )
+    #     model = LGBMRegressor(**best_params)
     #     model.set_params(objective=assym_obj_fn)
     #     model.fit(X=x_train.to_numpy(), y=y_train, eval_metric=assym_valid_fn)
     # else:
