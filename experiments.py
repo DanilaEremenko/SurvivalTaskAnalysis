@@ -6,5 +6,5 @@ EXP_PATH = Path('sk-full-data/fair_ds_nogeov')
 # CL_MODE = 'km'
 CL_MODE = 'kmlu'
 
-CL_DIR = 'recurs'
-# CL_DIR = 'flat'
+# CL_DIR = 'recurs'
+CL_DIR = 'flat'
