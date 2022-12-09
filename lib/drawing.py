@@ -86,7 +86,7 @@ def draw_corr_sns(group_df: pd.DataFrame, x_key: str, y_key: str, x_title: str, 
         jp.ax_marg_y.set_ylim(0, 1e6)
         jp.ax_marg_x.set_xlim(0, 1e6)
     jp.fig.suptitle(
-        f"{title}\ncorr = %.2f" % corr
+        f"{title}\nr = %.2f" % corr
         + (", rmse = %.2f" % rmse if add_rmse else '')
         + (", mae = %.2f" % mae if add_mae else '')
         + (", mae perc = %.2f" % mae_perc if add_mae_perc else '')
