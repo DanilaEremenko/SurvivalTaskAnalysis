@@ -11,8 +11,10 @@ import sklearn.metrics as metrics
 from sklearn.model_selection import ParameterGrid
 from sksurv.ensemble import RandomSurvivalForest
 
-from experiments import EXP_PATH, CL_MODE
+from experiments import EXP_PATH, CL_MODE, CL_DIR
 from lib.custom_models import ClusteringBasedModel
+from lib.custom_survival_funcs import get_event_time_manual, batch_surv_time_pred, batch_risk_score_pred, \
+    get_t_from_y
 from lib.losses import Losses
 
 
@@ -32,19 +34,6 @@ def get_reg_predictions_and_metrics_df(model, X, y) -> pd.DataFrame:
     res_test_df['mae'] = res_test_df['residual'].abs()
     res_test_df['mae perc'] = res_test_df['residual perc'].abs()
     return res_test_df
-
-
-def get_event_time_manual(event_times: np.ndarray, probs: np.ndarray) -> List[float]:
-    res_arr = []
-    print('predicting 200')
-    for i, curr_probs in enumerate(probs):
-        for et, prob in zip(event_times, curr_probs):
-            if prob == curr_probs.min():
-                res_arr.append(et)
-                break
-        # if len(res_arr) != i + 1:
-        #     raise Exception('No prob < 0.1 in prob vector')
-    return res_arr
 
 
 ASSYM_COEF = 10.
@@ -127,6 +116,8 @@ def build_scenarios(
         # rsf predicts are working too long
         random.seed(42)
         test_subset_indexes = np.random.randint(low=0, high=len(x_test), size=10_000)
+        x_test = x_test.iloc[test_subset_indexes]
+        y_test = y_test[test_subset_indexes]
 
         common_args = {'n_estimators': [len(x_train) // ex_in_trees for ex_in_trees in (500, 1000)],
                        'bootstrap': [True], 'max_features': [1.0],
@@ -143,25 +134,27 @@ def build_scenarios(
             model = RandomSurvivalForest(**args_dict)
             start_time = time.time()
             model.fit(X=x_train, y=y_train)
+            fit_time = time.time() - start_time
 
             print('testing')
-            y_test_pred = model.predict(x_test.iloc[test_subset_indexes])
+            start_time = time.time()
+            y_test_pred_rs = batch_risk_score_pred(model=model, X=x_test)
+            rs_calc = time.time() - start_time
 
-            # y_test_pred = np.concatenate([
-            #     get_event_time_manual(
-            #         event_times=model.event_times_,
-            #         probs=model.predict_survival_function(x_test[start:start + 200], return_array=True)
-            #     )
-            #     for start in range(0, len(x_test), 200)
-            # ])
+            start_time = time.time()
+            y_test_pred_time = batch_surv_time_pred(model=model, X=x_test)
+            time_calc = time.time() - start_time
 
             res_list.append(
                 {
                     'args_dict': json.dumps(args_dict),
-                    'fit_predict_time': time.time() - start_time,
+                    'fit_time': fit_time,
+                    'time_calc': time_calc,
+                    'rs_cal': rs_calc,
                     # 'c-val': model.score(X=x_test[:10_000], y=y_test[:10_000]),
                     # 'c-val': model.score(X=x_test, y=y_test),
-                    'r': Losses.r(y=[y[1] for y in y_test[test_subset_indexes]], pred=y_test_pred)
+                    'r(risk)': Losses.r(y=get_t_from_y(y_test), pred=y_test_pred_rs),
+                    'r': Losses.r(y=get_t_from_y(y_test), pred=y_test_pred_time)
                 }
             )
     elif method == 'cb':
@@ -170,7 +163,7 @@ def build_scenarios(
             model = ClusteringBasedModel(
                 clust_key=f'cl_l{cl_lvl}',
                 cluster_centroids=pd.read_csv(
-                    f'{EXP_PATH}/clustering_{CL_MODE}/train_centroids_l{cl_lvl}.csv',
+                    f'{EXP_PATH}/clustering_{CL_MODE}_{CL_DIR}/train_centroids_l{cl_lvl}.csv',
                     index_col=0
                 )
             )
@@ -182,7 +175,7 @@ def build_scenarios(
                 {
                     'args_dict': json.dumps({'cl_lvl': cl_lvl}),
                     'fit_predict_time': time.time() - start_time,
-                    'r': Losses.r(y=y_test, pred=y_test_pred)
+                    'r': Losses.r(y=get_t_from_y(y_test), pred=y_test_pred)
                 }
             )
     else:

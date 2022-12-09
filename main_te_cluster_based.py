@@ -5,7 +5,7 @@ import pandas as pd
 from pandas.core.dtypes.common import is_string_dtype
 from sklearn.preprocessing import LabelEncoder
 from sksurv.util import Surv
-from experiments import EXP_PATH, CL_MODE
+from experiments import EXP_PATH, CL_MODE, CL_DIR
 from lib.custom_models import ClusteringBasedModel
 from lib.custom_survival_funcs import translate_censored_data
 from lib.losses import Losses
@@ -35,8 +35,8 @@ if __name__ == '__main__':
     # ------------ exp descriptions  ---------------
     ################################################
     exp_desc = ExpSurvDesc(
-        res_dir=f"{EXP_PATH}/psearch_surv_elapsed_time",
-        train_file=f'{EXP_PATH}/train.csv',
+        res_dir=f"{EXP_PATH}/psearch_cluster_{CL_MODE}_{CL_DIR}_based_elapsed_time",
+        train_file=f'{EXP_PATH}/clustering_{CL_MODE}_{CL_DIR}/train_clustered.csv',
         test_file=f'{EXP_PATH}/test.csv',
         y_key='ElapsedRaw',
         event_key='event',
@@ -49,6 +49,7 @@ if __name__ == '__main__':
     # ------------ data processing  ----------------
     ################################################
     train_df = pd.read_csv(exp_desc.train_file, index_col=0)
+    assert len([key for key in train_df.keys() if 'cl_l' in key]) >= 1
     test_df = pd.read_csv(exp_desc.test_file, index_col=0)
 
     # State is neccessary for event formation
@@ -83,24 +84,24 @@ if __name__ == '__main__':
     # ################################################
     # -------------- search params -------------------
     # ################################################
-    # res_list_df = build_scenarios(
-    #     x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
-    #     method='cb',
-    # )
-    #
-    # res_list_df.sort_values('r', ascending=False, inplace=True)
-    # res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
+    res_list_df = build_scenarios(
+        x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
+        method='cb',
+    )
+
+    res_list_df.sort_values('r', ascending=False, inplace=True)
+    res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
     ################################################
     # --- analyze model errors & dependencies  -----
     ################################################
-    model = ClusteringBasedModel(
-        clust_key=f'cl_l{1}',
-        cluster_centroids=pd.read_csv(
-            f'{EXP_PATH}/clustering_{CL_MODE}/train_centroids_l{1}.csv',
-            index_col=0
-        )
-    )
-    model.fit(X=x_train, y=y_train)
-
-    y_pred = pd.DataFrame({'y_pred': model.predict(x_test)})
-    y_pred.to_csv(f'{EXP_PATH}/y_pred_cl_{CL_MODE}.csv', index=False)
+    # model = ClusteringBasedModel(
+    #     clust_key=f'cl_l{1}',
+    #     cluster_centroids=pd.read_csv(
+    #         f'{EXP_PATH}/clustering_{CL_MODE}_{CL_DIR}/train_centroids_l{1}.csv',
+    #         index_col=0
+    #     )
+    # )
+    # model.fit(X=x_train, y=y_train)
+    #
+    # y_pred = pd.DataFrame({'y_pred': model.predict(x_test)})
+    # y_pred.to_csv(f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}.csv', index=False)

@@ -15,7 +15,7 @@ from sksurv.util import Surv
 from joblib import dump, load
 
 from experiments import EXP_PATH
-from lib.custom_survival_funcs import translate_censored_data
+from lib.custom_survival_funcs import translate_censored_data, batch_surv_time_pred
 from lib.losses import Losses
 from lib.models_building import build_scenarios
 
@@ -100,13 +100,13 @@ if __name__ == '__main__':
     # ################################################
     # -------------- search params -------------------
     # ################################################
-    # res_list_df = build_scenarios(
-    #     x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
-    #     method='rsf'
-    # )
-    #
-    # res_list_df.sort_values('r', ascending=False, inplace=True)
-    # res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
+    res_list_df = build_scenarios(
+        x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
+        method='rsf'
+    )
+
+    res_list_df.sort_values('r', ascending=False, inplace=True)
+    res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
     # ################################################
     # -------------- deep survival analyze -----------
     # ################################################
@@ -161,18 +161,20 @@ if __name__ == '__main__':
     # ################################################
     # -------------- made predictions ----------------
     # ################################################
-    rsf = RandomSurvivalForest(
-        n_estimators=54,
-        bootstrap=True,
-        max_samples=500,
-        min_samples_leaf=8,
-        n_jobs=4,
-        random_state=42
-    )
-    rsf.fit(X=x_train, y=y_train)
-    y_pred = pd.DataFrame(
-        {
-            'y_pred': rsf.predict(x_test)
-        }
-    )
-    y_pred.to_csv(f'{EXP_PATH}/y_pred_surv.csv', index=False)
+    # rsf = RandomSurvivalForest(
+    #     # n_estimators=54,
+    #     n_estimators=262,
+    #     bootstrap=True,
+    #     max_samples=500,
+    #     max_depth=10,
+    #     min_samples_leaf=8,
+    #     n_jobs=4,
+    #     random_state=42
+    # )
+    # rsf.fit(X=x_train, y=y_train)
+    # y_pred = pd.DataFrame(
+    #     {
+    #         'y_pred': batch_surv_time_pred(model=rsf, X=x_test)
+    #     }
+    # )
+    # y_pred.to_csv(f'{EXP_PATH}/y_pred_surv.csv', index=False)

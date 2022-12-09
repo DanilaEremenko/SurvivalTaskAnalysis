@@ -6,8 +6,10 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import MinMaxScaler
+from sksurv.ensemble import RandomSurvivalForest
 
 from experiments import CL_MODE
+from lib.custom_survival_funcs import batch_surv_time_pred, get_t_from_y
 from lib.kmeans_lu import fast_dist, weighted_dist_numba
 from lib.time_ranges import get_time_range_symb
 
@@ -18,6 +20,7 @@ class ClusteringBasedModel:
         self.models_dict: Optional[List[Dict]] = None
         self.cluster_centroids = cluster_centroids
         self.norm_dict: Optional[Dict[str, MinMaxScaler]] = None
+        self.normalize = False
 
         if CL_MODE == 'km':
             self._dist_func = fast_dist
@@ -26,22 +29,23 @@ class ClusteringBasedModel:
         else:
             raise Exception(f"Unexpected clustering mode = {CL_MODE}")
 
-    def fit_one_model(self, x_cl: pd.DataFrame, y_cl: np.ndarray) -> dict:
+    def fit_one_model(self, x_cl: pd.DataFrame, y_cl: np.ndarray, full_train_size: int) -> dict:
         common_args = {
-            'n_estimators': [max(len(x_cl) // n_samples, 5) for n_samples in [500, 1000]],
-            'bootstrap': [True],
-            'random_state': [42]
-        }
-        param_grid = [
-            {'max_depth': [2, 4, 8], **common_args},
-            {'min_samples_leaf': [1, 2, 4], **common_args},
+            'n_estimators': [max(5, len(x_cl) // ex_in_trees) for ex_in_trees in (500, 1000)],
+            'bootstrap': [True], 'max_features': [1.0],
+            'max_samples': [500], 'random_state': [42]}
+        params_grid = [
+            # {'max_depth': [2, 4, 8], **common_args},
+            # {'min_samples_leaf': [2, 4, 8], **common_args},
+            {'min_samples_leaf': [2, 4, 8], 'max_depth': [10], **common_args},
         ]
-        clf_grid = GridSearchCV(RandomForestRegressor(), param_grid)
+
+        clf_grid = GridSearchCV(RandomSurvivalForest(), params_grid)
 
         print('fitting model')
-        print(f'cluster_size={len(x_cl)}')
+        print(f'cluster_part={len(x_cl) / full_train_size}')
 
-        cl_dist = dict(Counter([get_time_range_symb(task_time=task_time) for task_time in y_cl]))
+        cl_dist = dict(Counter([get_time_range_symb(task_time=task_time) for task_time in get_t_from_y(y_cl)]))
         cl_dist_df = pd.DataFrame({'time_range': cl_dist.keys(), 'tasks(%)': cl_dist.values()}) \
             .sort_values('time_range', ascending=True)
         cl_dist_df['tasks(%)'] /= len(y_cl)
@@ -57,6 +61,12 @@ class ClusteringBasedModel:
             'model': clf_grid.best_estimator_
         }
 
+    def normalize_series(self, s: pd.Series, norm: MinMaxScaler, ):
+        if self.normalize:
+            return norm.transform(np.array(s).reshape(-1, 1))
+        else:
+            return s
+
     def fit(self, X: pd.DataFrame, y: np.ndarray):
         f_keys = [key for key in X.keys() if 'cl_l' not in key]
 
@@ -65,16 +75,17 @@ class ClusteringBasedModel:
             key: MinMaxScaler().fit(np.array(X[key]).reshape(-1, 1))
             for key in f_keys
         }
-        self.norm_dict['ElapsedRaw'] = MinMaxScaler().fit(np.array(y).reshape(-1, 1))
+        # self.norm_dict['ElapsedRaw'] = MinMaxScaler().fit(np.array(y).reshape(-1, 1))
 
         # normalize cluster centroids
         for key, norm in self.norm_dict.items():
-            self.cluster_centroids[key] = norm.transform(np.array(self.cluster_centroids[key]).reshape(-1, 1))
+            self.cluster_centroids[key] = self.normalize_series(self.cluster_centroids[key], norm)
 
         self.models_dict = {
             clust_val: self.fit_one_model(
                 X[X[self.clust_key] == clust_val][f_keys],
-                y[X[X[self.clust_key] == clust_val].index]
+                y[X[X[self.clust_key] == clust_val].reset_index().index],
+                full_train_size=len(X)
             )
             for clust_val in X[self.clust_key].unique()
         }
@@ -97,13 +108,16 @@ class ClusteringBasedModel:
             raise Exception("Trying to call predict without fitting")
 
         f_keys = [key for key in X.keys() if 'cl_l' not in key]
-        y_pred_all = np.array([model_dict['model'].predict(X[f_keys]) for model_dict in self.models_dict.values()])
+        y_pred_all = np.array([batch_surv_time_pred(model_dict['model'], X[f_keys])
+                               for model_dict in self.models_dict.values()])
         y_avg = y_pred_all.mean(axis=0)
+
+        # return y_avg
 
         X_norm_and_extended = X.copy()
         X_norm_and_extended['ElapsedRaw'] = y_avg
         for key, norm in self.norm_dict.items():
-            X_norm_and_extended[key] = norm.transform(np.array(X_norm_and_extended[key]).reshape(-1, 1))
+            X_norm_and_extended[key] = self.normalize_series(X_norm_and_extended[key], norm)
 
         print('calulating id to cluster')
         id_to_cluster_df = pd.DataFrame([
@@ -121,8 +135,8 @@ class ClusteringBasedModel:
             if len(model_indexes) == 0:
                 continue
 
-            model_X = X.iloc[model_indexes]
-            id_to_cluster_df.loc[model_indexes, 'y_pred'] = model.predict(model_X)
+            model_X = X.loc[model_indexes]
+            id_to_cluster_df.loc[model_indexes, 'y_pred'] = batch_surv_time_pred(model, model_X)
 
         y_selected = np.array(id_to_cluster_df['y_pred'])
         assert -1 not in y_selected
