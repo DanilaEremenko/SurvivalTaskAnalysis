@@ -8,18 +8,24 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
+from experiments import DATA_SPLITER, TASKS_GROUP, EXP_PATH
+
 ########################################################################################################################
 # ------------------------------------ loading & merging ---------------------------------------------------------------
 ########################################################################################################################
 # load
 src_df = pd.read_csv('sk-full-data/last_data/data.csv', index_col=0)
 areas_df = pd.read_csv('sk-full-data/last_data/areas.csv')
-res_dir = Path('sk-full-data/fair_ds_nogeov')
-res_dir.mkdir(exist_ok=True)
 
 # geovation drop | save
-print(f"filter geovation tasks {len(src_df[src_df['GroupID_scontrol'] != 'geovation(50218)']) / len(src_df)}")
-filt_df = src_df[src_df['GroupID_scontrol'] != 'geovation(50218)']
+print(f"filter {TASKS_GROUP} tasks {len(src_df[src_df['GroupID_scontrol'] != 'geovation(50218)']) / len(src_df)}")
+
+if TASKS_GROUP == 'geov':
+    filt_df = src_df[src_df['GroupID_scontrol'] == 'geovation(50218)']
+elif TASKS_GROUP == 'nogeov':
+    filt_df = src_df[src_df['GroupID_scontrol'] != 'geovation(50218)']
+else:
+    raise Exception(f"Unexpected group = {TASKS_GROUP}")
 
 # from lib.time_ranges import get_time_range_symb
 # filt_df.loc[:, 'time_elapsed_range'] = [get_time_range_symb(task_time=task_time)
@@ -126,15 +132,14 @@ filt_df['State'] = le_dict['State'].inverse_transform(filt_df['State'])
 # ------------------------------------------- split & save  ------------------------------------------------------------
 ########################################################################################################################
 filt_df = pd.merge(left=filt_df, right=src_df[['SubmitTime']], left_index=True, right_index=True)
-train_df = filt_df[filt_df['SubmitTime'] < '2022-10-17T00:00:00'].drop(columns='SubmitTime')
-test_df = filt_df[filt_df['SubmitTime'] >= '2022-10-17T00:00:00'].drop(columns='SubmitTime')
+train_df, test_df = DATA_SPLITER.split(filt_df)
 print(f'train part = {len(train_df) / len(filt_df):.2f}')
 print(f'test part = {len(test_df) / len(filt_df):.2f}')
 
 # train_df, test_df = train_test_split(filt_df, test_size=0.33, random_state=42)
 
-train_df.to_csv(f'{res_dir}/train.csv')
-test_df.to_csv(f'{res_dir}/test.csv')
+train_df.to_csv(f'{EXP_PATH}/train.csv')
+test_df.to_csv(f'{EXP_PATH}/test.csv')
 
 # useful in debug
 # {group: len(filt_df[filt_df['GroupID_scontrol'] == group]) / len(filt_df)
