@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import Tuple
 
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 
-class TrainTestSplit:
+class DataSpliter:
     def __init__(self):
         pass
 
@@ -16,7 +17,7 @@ class TrainTestSplit:
         raise Exception("Should be implemented")
 
 
-class DatesSplit(TrainTestSplit):
+class DatesSpliter(DataSpliter):
     def __init__(
             self,
             name: str,
@@ -45,3 +46,16 @@ class DatesSplit(TrainTestSplit):
             df.drop(columns='SubmitDatetime', inplace=True)
 
         return train_df, test_df
+
+
+class UnfairSpliter(DataSpliter):
+    def __init__(self, test_size):
+        self.test_size = test_size
+        super().__init__()
+
+    @property
+    def name(self) -> str:
+        return f'unfair_{self.test_size}'
+
+    def split(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        return train_test_split(df, test_size=self.test_size)
