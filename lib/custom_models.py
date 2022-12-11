@@ -31,17 +31,19 @@ class ClusteringBasedModel:
             raise Exception(f"Unexpected clustering mode = {CL_MODE}")
 
     def fit_one_model(self, x_cl: pd.DataFrame, y_cl: np.ndarray, full_train_size: int) -> dict:
+        cv = 5
+
         common_args = {
             'n_estimators': [max(5, len(x_cl) // ex_in_trees) for ex_in_trees in (500, 1000)],
+            # 'n_estimators': [10],
             'bootstrap': [True], 'max_features': [1.0],
-            'max_samples': [min(500, x_cl.shape[0])], 'random_state': [42]}
+            'max_samples': [min(500, int(len(x_cl) * (1 - 1 / cv)))], 'random_state': [42]}
         params_grid = [
             # {'max_depth': [2, 4, 8], **common_args},
             # {'min_samples_leaf': [2, 4, 8], **common_args},
-            {'min_samples_leaf': [2, 4, 8], 'max_depth': [10], **common_args},
+            {'min_samples_leaf': [4], 'max_depth': [10], **common_args},
         ]
-
-        clf_grid = GridSearchCV(RandomSurvivalForest(), params_grid)
+        clf_grid = GridSearchCV(RandomSurvivalForest(), params_grid, cv=cv)
 
         print('fitting model')
         print(f'cl size = {len(x_cl)}')
