@@ -77,10 +77,11 @@ class ClusteringBasedModel:
         for key, norm in self.norm_dict.items():
             self.cluster_centroids[key] = self.normalize_series(self.cluster_centroids[key], norm)
 
+        X_idx_r = X.reset_index(drop=True)
         self.models_dict = {
             clust_val: self.fit_one_model(
-                X[X[self.clust_key] == clust_val][f_keys],
-                y[X[X[self.clust_key] == clust_val].reset_index().index],
+                X_idx_r[X_idx_r[self.clust_key] == clust_val][f_keys],
+                y[X_idx_r[X_idx_r[self.clust_key] == clust_val].index],
                 full_train_size=len(X)
             )
             for clust_val in X[self.clust_key].unique()
@@ -136,5 +137,12 @@ class ClusteringBasedModel:
 
         y_selected = np.array(id_to_cluster_df['y_pred'])
         assert -1 not in y_selected
+
+        # debug_arr = np.column_stack((y_pred_all[0], y_pred_all[1], y_avg,
+        #                              y_selected, get_t_from_y(y_test),
+        #                              id_to_cluster_df['cl']))
+        # debug_df = pd.DataFrame({'y_1': y_pred_all[0], 'y_2': y_pred_all[1], 'y_avg': y_avg,
+        #                          'y_selected': y_selected, 'y_true': get_t_from_y(y_test),
+        #                          'cl': id_to_cluster_df['cl']})
 
         return y_selected
