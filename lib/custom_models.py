@@ -12,6 +12,7 @@ from experiments import CL_MODE
 from lib.custom_survival_funcs import batch_surv_time_pred, get_t_from_y
 from lib.kmeans_lu import fast_dist, weighted_dist_numba
 from lib.time_ranges import get_time_range_symb
+from prepare_clust import print_one_cl_dist
 
 
 class ClusteringBasedModel:
@@ -33,7 +34,7 @@ class ClusteringBasedModel:
         common_args = {
             'n_estimators': [max(5, len(x_cl) // ex_in_trees) for ex_in_trees in (500, 1000)],
             'bootstrap': [True], 'max_features': [1.0],
-            'max_samples': [500], 'random_state': [42]}
+            'max_samples': [min(500, x_cl.shape[0])], 'random_state': [42]}
         params_grid = [
             # {'max_depth': [2, 4, 8], **common_args},
             # {'min_samples_leaf': [2, 4, 8], **common_args},
@@ -43,13 +44,8 @@ class ClusteringBasedModel:
         clf_grid = GridSearchCV(RandomSurvivalForest(), params_grid)
 
         print('fitting model')
-        print(f'cluster_part={len(x_cl) / full_train_size}')
-
-        cl_dist = dict(Counter([get_time_range_symb(task_time=task_time) for task_time in get_t_from_y(y_cl)]))
-        cl_dist_df = pd.DataFrame({'time_range': cl_dist.keys(), 'tasks(%)': cl_dist.values()}) \
-            .sort_values('time_range', ascending=True)
-        cl_dist_df['tasks(%)'] /= len(y_cl)
-        print(f'classes distribution in cluster: \n{cl_dist_df.round(2)}')
+        print(f'cl size = {len(x_cl)}')
+        print_one_cl_dist(pd.DataFrame({'ElapsedRaw': get_t_from_y(y_cl)}))
 
         clf_grid.fit(X=x_cl, y=y_cl)
         print(f'best grid params = {clf_grid.best_params_}')
