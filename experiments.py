@@ -24,6 +24,9 @@ DATA_SPLITER = DatesSplit(
 # TASKS_GROUP = 'geov'
 TASKS_GROUP = 'nogeov'
 
+MODELS_MODE = 'search'
+# MODELS_MODE = 'predict'
+
 
 def get_ds_path_name() -> str:
     return f'ds_group={TASKS_GROUP}, split={DATA_SPLITER.name}'

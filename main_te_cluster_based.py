@@ -5,7 +5,7 @@ import pandas as pd
 from pandas.core.dtypes.common import is_string_dtype
 from sklearn.preprocessing import LabelEncoder
 from sksurv.util import Surv
-from experiments import EXP_PATH, CL_MODE, CL_DIR
+from experiments import EXP_PATH, CL_MODE, CL_DIR, MODELS_MODE
 from lib.custom_models import ClusteringBasedModel
 from lib.custom_survival_funcs import translate_censored_data
 from lib.losses import Losses
@@ -81,27 +81,27 @@ if __name__ == '__main__':
     y_train = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_train_src)
     y_test = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_test_src)
 
-    # ################################################
-    # -------------- search params -------------------
-    # ################################################
-    res_list_df = build_scenarios(
-        x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
-        method='cb',
-    )
+    ####################################################################################################################
+    # ----------------------------------------------- params search | predict ------------------------------------------
+    ####################################################################################################################
+    if MODELS_MODE == 'search':
+        res_list_df = build_scenarios(
+            x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
+            method='cb',
+        )
+        res_list_df.sort_values('r', ascending=False, inplace=True)
+        res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
+    elif MODELS_MODE == 'predict':
+        model = ClusteringBasedModel(
+            clust_key=f'cl_l{3}',
+            cluster_centroids=pd.read_csv(
+                f'{EXP_PATH}/clustering_{CL_MODE}_{CL_DIR}/train_centroids_l{1}.csv',
+                index_col=0
+            )
+        )
+        model.fit(X=x_train, y=y_train)
 
-    res_list_df.sort_values('r', ascending=False, inplace=True)
-    res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
-    ################################################
-    # --- analyze model errors & dependencies  -----
-    ################################################
-    # model = ClusteringBasedModel(
-    #     clust_key=f'cl_l{1}',
-    #     cluster_centroids=pd.read_csv(
-    #         f'{EXP_PATH}/clustering_{CL_MODE}_{CL_DIR}/train_centroids_l{1}.csv',
-    #         index_col=0
-    #     )
-    # )
-    # model.fit(X=x_train, y=y_train)
-    #
-    # y_pred = pd.DataFrame({'y_pred': model.predict(x_test)})
-    # y_pred.to_csv(f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}.csv', index=False)
+        y_pred = pd.DataFrame({'y_pred': model.predict(x_test)})
+        y_pred.to_csv(f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}.csv', index=False)
+    else:
+        raise Exception(f"Unexpected MODELS_MODE = {MODELS_MODE}")

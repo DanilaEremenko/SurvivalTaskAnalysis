@@ -14,7 +14,7 @@ from sksurv.ensemble import RandomSurvivalForest
 from sksurv.util import Surv
 from joblib import dump, load
 
-from experiments import EXP_PATH
+from experiments import EXP_PATH, MODELS_MODE
 from lib.custom_survival_funcs import translate_censored_data, batch_surv_time_pred
 from lib.losses import Losses
 from lib.models_building import build_scenarios
@@ -97,16 +97,28 @@ if __name__ == '__main__':
     y_train = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_train_src)
     y_test = Surv.from_dataframe(event='event', time='ElapsedRaw', data=y_test_src)
 
-    # ################################################
-    # -------------- search params -------------------
-    # ################################################
-    res_list_df = build_scenarios(
-        x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
-        method='rsf'
-    )
-
-    res_list_df.sort_values('r', ascending=False, inplace=True)
-    res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
+    ####################################################################################################################
+    # ----------------------------------------------- params search | predict ------------------------------------------
+    ####################################################################################################################
+    if MODELS_MODE == 'search':
+        res_list_df = build_scenarios(
+            x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
+            method='rsf'
+        )
+        res_list_df.sort_values('r', ascending=False, inplace=True)
+        res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
+    elif MODELS_MODE == 'predict':
+        best_params = json.loads(pd.read_csv(f'{exp_desc.res_dir}/res_full_search.csv').iloc[0]['args_dict'])
+        rsf = RandomSurvivalForest(**best_params)
+        rsf.fit(X=x_train, y=y_train)
+        y_pred = pd.DataFrame(
+            {
+                'y_pred': batch_surv_time_pred(model=rsf, X=x_test)
+            }
+        )
+        y_pred.to_csv(f'{EXP_PATH}/y_pred_surv.csv', index=False)
+    else:
+        raise Exception(f"Unexpected MODELS_MODE = {MODELS_MODE}")
     # ################################################
     # -------------- deep survival analyze -----------
     # ################################################
@@ -158,15 +170,3 @@ if __name__ == '__main__':
     #         ])
     #     }
     # )
-    # ################################################
-    # -------------- made predictions ----------------
-    # ################################################
-    # best_params = json.loads(pd.read_csv(f'{exp_desc.res_dir}/res_full_search.csv').iloc[0]['args_dict'])
-    # rsf = RandomSurvivalForest(**best_params)
-    # rsf.fit(X=x_train, y=y_train)
-    # y_pred = pd.DataFrame(
-    #     {
-    #         'y_pred': batch_surv_time_pred(model=rsf, X=x_test)
-    #     }
-    # )
-    # y_pred.to_csv(f'{EXP_PATH}/y_pred_surv.csv', index=False)
