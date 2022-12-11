@@ -38,8 +38,8 @@ def batch_risk_score_pred(model: RandomSurvivalForest, X: pd.DataFrame, batch_si
     ])
 
 
-def get_t_from_y(y) -> List[float]:
-    return [y_ex[1] for y_ex in y]
+def get_t_from_y(y) -> np.ndarray:
+    return np.array([y_ex[1] for y_ex in y])
 
 
 def translate_censored_data(df: pd.DataFrame) -> pd.DataFrame:
