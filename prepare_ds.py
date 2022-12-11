@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict
 
@@ -18,14 +19,14 @@ src_df = pd.read_csv('sk-full-data/last_data/data.csv', index_col=0)
 areas_df = pd.read_csv('sk-full-data/last_data/areas.csv')
 
 # geovation drop | save
-print(f"filter {TASKS_GROUP} tasks {len(src_df[src_df['GroupID_scontrol'] != 'geovation(50218)']) / len(src_df)}")
-
 if TASKS_GROUP == 'geov':
     filt_df = src_df[src_df['GroupID_scontrol'] == 'geovation(50218)']
 elif TASKS_GROUP == 'nogeov':
     filt_df = src_df[src_df['GroupID_scontrol'] != 'geovation(50218)']
 else:
     raise Exception(f"Unexpected group = {TASKS_GROUP}")
+
+print(f"filter {TASKS_GROUP} tasks {len(filt_df) / len(src_df):.2f}")
 
 # from lib.time_ranges import get_time_range_symb
 # filt_df.loc[:, 'time_elapsed_range'] = [get_time_range_symb(task_time=task_time)
@@ -39,6 +40,11 @@ else:
 
 filt_df = filt_df[sorted(filt_df.keys())]
 ########################################################################################################################
+# ------------------------------------ generate features  --------------------------------------------------------------
+########################################################################################################################
+filt_df['SubmitHour'] = [datetime.strptime(date, "%Y-%m-%dT%H:%M:%S").hour for date in filt_df['SubmitTime']]
+filt_df['SubmitWeekday'] = [datetime.strptime(date, "%Y-%m-%dT%H:%M:%S").weekday() for date in filt_df['SubmitTime']]
+########################################################################################################################
 # ------------------------------------ condition based & mannually defined drops ---------------------------------------
 ########################################################################################################################
 old_keys = filt_df.keys()
@@ -47,7 +53,7 @@ print(f"dropna columns = {','.join([key for key in filt_df if key not in old_key
 
 
 def drop_group_of_keys(drop_keys: List[str], reason: str):
-    drop_keys = [key for key in drop_keys if key in filt_df.keys()]
+    drop_keys = [key for key in drop_keys if key in filt_df.keys() and key not in ['State']]
     print(f"cause of {reason} drop: {','.join(drop_keys)}")
     filt_df.drop(columns=drop_keys, inplace=True)
 
@@ -92,6 +98,7 @@ def get_high_corr_keys() -> List[str]:
             if key2 != key1 and \
                     key1 not in high_corr_keys and \
                     key2 not in high_corr_keys and \
+                    key1 != 'ElapsedRaw' and \
                     key2 != 'ElapsedRaw' and \
                     corr_df.loc[key1, key2] > 0.9:
                 high_corr_keys.append(key2)
@@ -103,8 +110,8 @@ drop_group_of_keys(get_high_corr_keys(), 'high correlation with another key')
 
 
 def low_rf_importance_keys():
-    rf = RandomForestRegressor(n_estimators=50, max_depth=4, bootstrap=False)
-    x_keys = [key for key in filt_df.keys() if key != 'ElapsedRaw']
+    rf = RandomForestRegressor(n_estimators=500, max_depth=5, bootstrap=True)
+    x_keys = [key for key in filt_df.keys() if key not in ['ElapsedRaw', 'State']]
     rf.fit(
         X=filt_df[x_keys],
         y=filt_df['ElapsedRaw']
@@ -112,9 +119,9 @@ def low_rf_importance_keys():
     imp_df = pd.DataFrame([{'key': key, 'imp': imp} for key, imp in zip(x_keys, rf.feature_importances_)]) \
         .sort_values('imp', ascending=False)
 
-    print(f"top importance = {imp_df[imp_df['imp'] > 0.001][['key', 'imp']]}")
+    print(f"top importance = {imp_df[imp_df['imp'] > 0.01][['key', 'imp']]}")
 
-    return list(imp_df[imp_df['imp'] <= 0.001]['key'])
+    return list(imp_df[imp_df['imp'] <= 0.01]['key'])
 
 
 drop_group_of_keys(low_rf_importance_keys(), 'low importance in random forrest')
