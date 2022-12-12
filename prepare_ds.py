@@ -1,8 +1,12 @@
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict
-
 import numpy as np
+from pandas.errors import SettingWithCopyWarning
+
+warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
+
 import pandas as pd
 from pandas.core.dtypes.common import is_numeric_dtype
 from sklearn.ensemble import RandomForestRegressor
@@ -27,6 +31,12 @@ else:
     raise Exception(f"Unexpected group = {TASKS_GROUP}")
 
 print(f"filter {TASKS_GROUP} tasks {len(filt_df) / len(src_df):.2f}")
+
+zero_tasks_df = filt_df[filt_df['ElapsedRaw'] > 0]
+
+print(f"filter ElapsedTime > 0 tasks {len(zero_tasks_df) / len(filt_df):.2f}")
+
+filt_df = zero_tasks_df
 
 # from lib.time_ranges import get_time_range_symb
 # filt_df.loc[:, 'time_elapsed_range'] = [get_time_range_symb(task_time=task_time)
@@ -140,10 +150,13 @@ filt_df['State'] = le_dict['State'].inverse_transform(filt_df['State'])
 ########################################################################################################################
 filt_df = pd.merge(left=filt_df, right=src_df[['SubmitTime']], left_index=True, right_index=True)
 train_df, test_df = DATA_SPLITER.split(filt_df)
+train_df.sort_values('SubmitTime', ascending=True, inplace=True)
+test_df.sort_values('SubmitTime', ascending=True, inplace=True)
+train_df.drop(columns='SubmitTime', inplace=True)
+test_df.drop(columns='SubmitTime', inplace=True)
+
 print(f'train part = {len(train_df) / len(filt_df):.2f}')
 print(f'test part = {len(test_df) / len(filt_df):.2f}')
-
-# train_df, test_df = train_test_split(filt_df, test_size=0.33, random_state=42)
 
 train_df.to_csv(f'{EXP_PATH}/train.csv')
 test_df.to_csv(f'{EXP_PATH}/test.csv')
