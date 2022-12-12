@@ -105,7 +105,7 @@ if __name__ == '__main__':
             x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test,
             method='rsf'
         )
-        res_list_df.sort_values('r', ascending=False, inplace=True)
+        res_list_df.sort_values('r2_mean_std', ascending=False, inplace=True)
         res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
     elif MODELS_MODE == 'predict':
         best_params = json.loads(pd.read_csv(f'{exp_desc.res_dir}/res_full_search.csv').iloc[0]['args_dict'])
