@@ -134,7 +134,7 @@ class ClusteringBasedModel:
             if len(model_indexes) == 0:
                 continue
 
-            model_X = X.loc[model_indexes]
+            model_X = X.loc[model_indexes, f_keys]
             id_to_cluster_df.loc[model_indexes, 'y_pred'] = batch_surv_time_pred(model, model_X)
 
         y_selected = np.array(id_to_cluster_df['y_pred'])
