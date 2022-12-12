@@ -11,7 +11,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 from typing import Dict, List
 
-from experiments import EXP_PATH, MODELS_MODE
+from experiments_config import EXP_PATH, MODELS_MODE
 from lib.drawing import draw_group_bars_and_boxes, draw_corr_sns, draw_pie_chart
 from lib.models_building import build_scenarios, assym_obj_fn, assym_valid_fn
 from lib.time_ranges import get_time_range_symb

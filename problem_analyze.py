@@ -1,6 +1,6 @@
 import pandas as pd
 
-from experiments import EXP_PATH, CL_DIR, CL_MODE
+from experiments_config import EXP_PATH, CL_DIR, CL_MODE
 from lib.drawing import draw_corr_sns, draw_df_as_image
 from lib.time_ranges import get_time_range_symb, TIME_RANGES
 import matplotlib

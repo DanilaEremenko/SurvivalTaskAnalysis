@@ -5,7 +5,7 @@ import pandas as pd
 from pandas.core.dtypes.common import is_string_dtype
 from sklearn.preprocessing import LabelEncoder
 from sksurv.util import Surv
-from experiments import EXP_PATH, CL_MODE, CL_DIR, MODELS_MODE
+from experiments_config import EXP_PATH, CL_MODE, CL_DIR, MODELS_MODE
 from lib.custom_models import ClusteringBasedModel
 from lib.custom_survival_funcs import add_events_to_df
 from lib.losses import Losses

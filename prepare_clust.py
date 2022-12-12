@@ -18,7 +18,7 @@ from sklearn.manifold import TSNE
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 import time
 
-from experiments import EXP_PATH, CL_MODE, CL_DIR
+from experiments_config import EXP_PATH, CL_MODE, CL_DIR
 from lib.time_ranges import get_time_range_symb
 from typing import Dict, List, Optional
 from lib.kmeans_lu import KMeansLU

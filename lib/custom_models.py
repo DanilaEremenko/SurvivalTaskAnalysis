@@ -8,7 +8,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import MinMaxScaler
 from sksurv.ensemble import RandomSurvivalForest
 
-from experiments import CL_MODE
+from experiments_config import CL_MODE
 from lib.custom_survival_funcs import batch_surv_time_pred, get_t_from_y
 from lib.kmeans_lu import fast_dist, weighted_dist_numba
 from lib.time_ranges import get_time_range_symb

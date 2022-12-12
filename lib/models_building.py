@@ -11,7 +11,7 @@ import sklearn.metrics as metrics
 from sklearn.model_selection import ParameterGrid
 from sksurv.ensemble import RandomSurvivalForest
 
-from experiments import EXP_PATH, CL_MODE, CL_DIR
+from experiments_config import EXP_PATH, CL_MODE, CL_DIR
 from lib.custom_models import ClusteringBasedModel
 from lib.custom_survival_funcs import get_event_time_manual, batch_surv_time_pred, batch_risk_score_pred, \
     get_t_from_y

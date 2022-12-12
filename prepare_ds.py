@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
-from experiments import DATA_SPLITER, TASKS_GROUP, EXP_PATH
+from experiments_config import DATA_SPLITER, TASKS_GROUP, EXP_PATH
 
 ########################################################################################################################
 # ------------------------------------ loading & merging ---------------------------------------------------------------

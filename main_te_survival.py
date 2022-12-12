@@ -14,7 +14,7 @@ from sksurv.ensemble import RandomSurvivalForest
 from sksurv.util import Surv
 from joblib import dump, load
 
-from experiments import EXP_PATH, MODELS_MODE
+from experiments_config import EXP_PATH, MODELS_MODE
 from lib.custom_survival_funcs import add_events_to_df, batch_surv_time_pred
 from lib.losses import Losses
 from lib.models_building import build_scenarios
