@@ -7,7 +7,7 @@ from sklearn.preprocessing import LabelEncoder
 from sksurv.util import Surv
 from experiments import EXP_PATH, CL_MODE, CL_DIR, MODELS_MODE
 from lib.custom_models import ClusteringBasedModel
-from lib.custom_survival_funcs import translate_censored_data
+from lib.custom_survival_funcs import add_events_to_df
 from lib.losses import Losses
 from lib.models_building import build_scenarios
 
@@ -40,7 +40,7 @@ if __name__ == '__main__':
         test_file=f'{EXP_PATH}/test.csv',
         y_key='ElapsedRaw',
         event_key='event',
-        translate_func=translate_censored_data
+        translate_func=add_events_to_df
     )
 
     exp_desc.res_dir.mkdir(exist_ok=True)

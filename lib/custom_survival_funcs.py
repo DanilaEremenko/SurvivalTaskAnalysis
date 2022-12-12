@@ -42,10 +42,20 @@ def get_t_from_y(y) -> np.ndarray:
     return np.array([y_ex[1] for y_ex in y])
 
 
-def translate_censored_data(df: pd.DataFrame) -> pd.DataFrame:
-    # TODO add correct processing for all events
-    df.loc[:, 'event'] = 0
+def add_events_to_df(df: pd.DataFrame) -> pd.DataFrame:
+    df.loc[:, 'event'] = -1
     df.loc[df['State'] == 'COMPLETED', 'event'] = 1
-    df.loc[df['State'] == 'TIMEOUT', 'event'] = 1
+    df.loc[df['State'] == 'RUNNING', 'event'] = 0
+    df.loc[df['State'] == 'FAILED', 'event'] = 0
+    df.loc[df['State'] == 'CANCELLED', 'event'] = 0
+    df.loc[df['State'] == 'TIMEOUT', 'event'] = 0
+    df.loc[df['State'] == 'NODE_FAIL', 'event'] = 0
+    df.loc[df['State'] == 'OUT_OF_MEMORY', 'event'] = 0
+
+    for state in df['State'].unique():
+        if 'CANCELLED by' in state:
+            df.loc[df['State'] == state, 'event'] = 0
+
+    assert all([event != -1 for event in df['event']])
     df.loc[random.choice(df.index), 'event'] = 0
     return df
