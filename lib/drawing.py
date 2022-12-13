@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
 import matplotlib.pyplot as plt
+from sklearn.metrics import r2_score
 
 from lib.losses import Losses
 
@@ -78,6 +79,7 @@ def draw_corr_sns(group_df: pd.DataFrame, x_key: str, y_key: str, x_title: str, 
     jp.set_axis_labels(x_title, y_title, fontsize=16)
 
     corr = Losses.r(pred=group_df[x_key], y=group_df[y_key])
+    r2 = r2_score(y_pred=group_df[x_key], y_true=group_df[y_key])
     rmse = Losses.rmse(group_df[x_key], group_df[y_key])
     mae = Losses.mae(group_df[x_key], group_df[y_key])
     mae_perc = ((group_df[x_key] - group_df[y_key]).abs() / group_df[x_key]).mean() * 100
@@ -86,7 +88,7 @@ def draw_corr_sns(group_df: pd.DataFrame, x_key: str, y_key: str, x_title: str, 
         jp.ax_marg_y.set_ylim(0, 1e6)
         jp.ax_marg_x.set_xlim(0, 1e6)
     jp.fig.suptitle(
-        f"{title}\nr = %.2f" % corr
+        f"{title}\nr  = %.2f\nr2 = %.2f" % (corr, r2)
         + (", rmse = %.2f" % rmse if add_rmse else '')
         + (", mae = %.2f" % mae if add_mae else '')
         + (", mae perc = %.2f" % mae_perc if add_mae_perc else '')
