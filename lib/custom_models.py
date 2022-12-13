@@ -8,7 +8,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import MinMaxScaler
 from sksurv.ensemble import RandomSurvivalForest
 
-from experiments_config import CL_MODE
+from experiments_config import CL_MODE, CL_CENTROIDS_DIST_MODE
 from lib.custom_survival_funcs import batch_surv_time_pred, get_t_from_y
 from lib.kmeans_lu import fast_dist, weighted_dist_numba
 from lib.time_ranges import get_time_range_symb
@@ -19,7 +19,8 @@ class ClusteringBasedModel:
     def __init__(self, clust_key: str, cluster_centroids: pd.DataFrame):
         self.clust_key = clust_key
         self.models_dict: Optional[List[Dict]] = None
-        self.cluster_centroids = cluster_centroids
+        self._cluster_centroids = cluster_centroids
+        self._cluster_centroids_surv = None
         self.norm_dict: Optional[Dict[str, MinMaxScaler]] = None
         self.normalize = False
 
@@ -29,6 +30,15 @@ class ClusteringBasedModel:
             self._dist_func = weighted_dist_numba
         else:
             raise Exception(f"Unexpected clustering mode = {CL_MODE}")
+
+    @property
+    def cluster_centroids_dist(self) -> pd.DataFrame:
+        if CL_CENTROIDS_DIST_MODE == 'orig(y)':
+            return self._cluster_centroids
+        elif CL_CENTROIDS_DIST_MODE == 'y_pred(y)':
+            return self._cluster_centroids_surv
+        else:
+            raise Exception(f"Undefined CL_CENTROIDS_DIST_MODE = {CL_CENTROIDS_DIST_MODE}")
 
     def fit_one_model(self, x_cl: pd.DataFrame, y_cl: np.ndarray, full_train_size: int) -> dict:
         cv = 5
@@ -68,7 +78,7 @@ class ClusteringBasedModel:
     def fit(self, X: pd.DataFrame, y: np.ndarray):
         f_keys = [key for key in X.keys() if 'cl_l' not in key]
 
-        # fit normalizers on train data
+        # fit normalizers on train data_type
         self.norm_dict: Dict[str, MinMaxScaler] = {
             key: MinMaxScaler().fit(np.array(X[key]).reshape(-1, 1))
             for key in f_keys
@@ -77,7 +87,7 @@ class ClusteringBasedModel:
 
         # normalize cluster centroids
         for key, norm in self.norm_dict.items():
-            self.cluster_centroids[key] = self.normalize_series(self.cluster_centroids[key], norm)
+            self._cluster_centroids[key] = self.normalize_series(self._cluster_centroids[key], norm)
 
         X_idx_r = X.reset_index(drop=True)
         self.models_dict = {
@@ -86,8 +96,17 @@ class ClusteringBasedModel:
                 y[X_idx_r[X_idx_r[self.clust_key] == clust_val].index],
                 full_train_size=len(X)
             )
-            for clust_val in X[self.clust_key].unique()
+            for clust_val in self._cluster_centroids['cl']
         }
+
+        self._cluster_centroids_surv = self._cluster_centroids.copy()
+        for i, cl in self._cluster_centroids_surv[['cl']].iterrows():
+            cl = int(cl)
+            self._cluster_centroids_surv.loc[i, 'ElapsedRaw'] = batch_surv_time_pred(
+                self.models_dict[cl]['model'],
+                self._cluster_centroids[f_keys]
+            )[cl]
+
         return self
 
     def get_closest_cluster(self, pt_coord: np.ndarray, f_keys: List[str]) -> int:
@@ -97,12 +116,13 @@ class ClusteringBasedModel:
                     'cl': centroid['cl'],
                     'dist': weighted_dist_numba(p1=centroid[[*f_keys, 'ElapsedRaw']].to_numpy(), p2=pt_coord)
                 }
-                for i, centroid in self.cluster_centroids.iterrows()
+                # for i, centroid in self._cluster_centroids_surv.iterrows()
+                for i, centroid in self.cluster_centroids_dist.iterrows()
             ]
         )
         return clust_distances_df.sort_values('dist', ascending=True).iloc[0]['cl']
 
-    def predict(self, X: pd.DataFrame) -> np.ndarray:
+    def predict(self, X: pd.DataFrame, y_test) -> np.ndarray:
         if self.models_dict is None:
             raise Exception("Trying to call predict without fitting")
 
@@ -140,11 +160,14 @@ class ClusteringBasedModel:
         y_selected = np.array(id_to_cluster_df['y_pred'])
         assert -1 not in y_selected
 
-        # debug_arr = np.column_stack((y_pred_all[0], y_pred_all[1], y_avg,
-        #                              y_selected, get_t_from_y(y_test),
-        #                              id_to_cluster_df['cl']))
-        # debug_df = pd.DataFrame({'y_1': y_pred_all[0], 'y_2': y_pred_all[1], 'y_avg': y_avg,
-        #                          'y_selected': y_selected, 'y_true': get_t_from_y(y_test),
-        #                          'cl': id_to_cluster_df['cl']})
+        self._debug_arr = np.column_stack((*[y_pred_model for i, y_pred_model in enumerate(y_pred_all)],
+                                           y_avg, y_selected, get_t_from_y(y_test),
+                                           id_to_cluster_df['cl']))
+        self._debug_df = pd.DataFrame({**{f'y_cl{i}': y_pred_model
+                                          for i, y_pred_model in enumerate(y_pred_all)},
+                                       'y_avg': y_avg, 'y_selected': y_selected, 'y_true': get_t_from_y(y_test),
+                                       **{f'y_cl{i}_resid': y_pred_model - get_t_from_y(y_test)
+                                          for i, y_pred_model in enumerate(y_pred_all)},
+                                       'cl': id_to_cluster_df['cl']})
 
         return y_selected
