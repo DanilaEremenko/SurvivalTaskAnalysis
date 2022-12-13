@@ -48,3 +48,6 @@ CL_MODE = 'kmlu'
 
 # CL_DIR = 'recurs'
 CL_DIR = 'flat'
+
+# CL_CENTROIDS_DIST_MODE = 'orig(y)'
+CL_CENTROIDS_DIST_MODE = 'y_pred(y)'

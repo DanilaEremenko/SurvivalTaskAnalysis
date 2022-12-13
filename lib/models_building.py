@@ -188,7 +188,7 @@ def build_scenarios(
             print('predicting')
             start_time = time.time()
             model.fit(X=x_train, y=y_train)
-            y_test_pred = model.predict(X=x_test)
+            y_test_pred = model.predict(X=x_test, y_test=y_test)
 
             kf = KFold(n_splits=5, shuffle=False)
             cv_score = []
@@ -198,7 +198,7 @@ def build_scenarios(
                 cv_score.append(
                     r2_score(
                         y_true=get_t_from_y(y_train[cv_test_index]),
-                        y_pred=model.predict(x_train.iloc[cv_test_index])
+                        y_pred=model.predict(x_train.iloc[cv_test_index],y_test=y_train[cv_test_index])
                     )
                 )
             cv_score = np.array(cv_score)

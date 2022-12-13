@@ -5,7 +5,7 @@ import pandas as pd
 from pandas.core.dtypes.common import is_string_dtype
 from sklearn.preprocessing import LabelEncoder
 from sksurv.util import Surv
-from experiments_config import EXP_PATH, CL_MODE, CL_DIR, MODELS_MODE
+from experiments_config import EXP_PATH, CL_MODE, CL_DIR, MODELS_MODE, CL_CENTROIDS_DIST_MODE
 from lib.custom_models import ClusteringBasedModel
 from lib.custom_survival_funcs import add_events_to_df
 from lib.losses import Losses
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     # ------------ exp descriptions  ---------------
     ################################################
     exp_desc = ExpSurvDesc(
-        res_dir=f"{EXP_PATH}/psearch_cluster_{CL_MODE}_{CL_DIR}_based_elapsed_time",
+        res_dir=f"{EXP_PATH}/psearch_cluster_{CL_MODE}_{CL_DIR}_{CL_CENTROIDS_DIST_MODE}_based_elapsed_time",
         train_file=f'{EXP_PATH}/clustering_{CL_MODE}_{CL_DIR}/train_clustered.csv',
         test_file=f'{EXP_PATH}/test.csv',
         y_key='ElapsedRaw',
@@ -92,16 +92,20 @@ if __name__ == '__main__':
         res_list_df.sort_values('r2_mean_std', ascending=False, inplace=True)
         res_list_df.to_csv(f'{exp_desc.res_dir}/res_full_search.csv')
     elif MODELS_MODE == 'predict':
+        cl_l = 1
         model = ClusteringBasedModel(
-            clust_key=f'cl_l{3}',
+            clust_key=f'cl_l{cl_l}',
             cluster_centroids=pd.read_csv(
-                f'{EXP_PATH}/clustering_{CL_MODE}_{CL_DIR}/train_centroids_l{1}.csv',
+                f'{EXP_PATH}/clustering_{CL_MODE}_{CL_DIR}/train_centroids_l{cl_l}.csv',
                 index_col=0
             )
         )
         model.fit(X=x_train, y=y_train)
-
-        y_pred = pd.DataFrame({'y_pred': model.predict(x_test)})
-        y_pred.to_csv(f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}.csv', index=False)
+        y_pred = model.predict(x_test, y_test)
+        y_pred = pd.DataFrame({'y_pred': y_pred})
+        y_pred.to_csv(f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}_{CL_CENTROIDS_DIST_MODE}.csv',
+                      index=False)
+        model._debug_arr.to_csv(f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}_{CL_CENTROIDS_DIST_MODE}_detailed.csv',
+                                index=False)
     else:
         raise Exception(f"Unexpected MODELS_MODE = {MODELS_MODE}")
