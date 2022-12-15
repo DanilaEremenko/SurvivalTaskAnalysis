@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Dict
 
+import matplotlib
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt, animation
@@ -11,6 +12,10 @@ from sksurv.util import Surv
 
 from experiments_config import EXP_PATH
 from lib.custom_survival_funcs import add_events_to_df
+
+font = {'family': 'Times New Roman',
+        'size': 32}
+matplotlib.rc('font', **font)
 
 
 class ExpSurvDesc:
@@ -118,12 +123,13 @@ if __name__ == '__main__':
     ####################################################################################################################
     # -------------------------------------------------- drawing -------------------------------------------------------
     ####################################################################################################################
-    fig = plt.figure()
+    fig = plt.figure(figsize=(4 * 5, 3 * 5))
     ax = plt.axes(xlim=(-10, 200), ylim=(-0.1, 1))
     data_type = 'censored' if event == 0 else 'not censored'
-    ax.set_title(f'{data_type} data rsf survival functions')
-    ax.set_xlabel('Time (hours)')
-    ax.set_ylabel('Probability of survival')
+    # ax.set_title(f'{data_type} data rsf survival functions')
+    ax.set_title(f'Функции выживаемости')
+    ax.set_xlabel('Время решения (часы)')
+    ax.set_ylabel('Вероятность завершения')
     ax.grid(True)
     # ax.legend(handles=[f"Elapsed time = {task / 3600:.2f}" for task in list(y_test_src_df_sel['ElapsedRaw'])])
     lines = [ax.plot([], [])[0] for i in range(len(y_pred))]
@@ -143,8 +149,8 @@ if __name__ == '__main__':
         for pred_i, (line, curr_pred, color) in enumerate(zip(lines, y_pred, COLORS)):
             x = rsf.event_times_[:i * step] / 3600
             y = curr_pred[:i * step]
-            label = f"Elapsed Time = {y_test_src_df_sel.iloc[pred_i]['ElapsedRaw'] / 3600:.2f} hours"
-            step_lines.append(plt.step(x, y, where="post", label=label, color=color)[0])
+            label = f"Фактическое время решения = {y_test_src_df_sel.iloc[pred_i]['ElapsedRaw'] / 3600:.2f} часов"
+            step_lines.append(plt.step(x, y, where="post", label=label, linewidth=4, color=color)[0])
             line.set_data(x, y)
             # line.set_label(f'Tasks time')
         ax.legend(handles=step_lines, loc='upper right')
@@ -156,5 +162,5 @@ if __name__ == '__main__':
     anim = animation.FuncAnimation(fig, animate, init_func=init,
                                    frames=len(rsf.event_times_) // step, interval=20, blit=True)
     f = f'rsf {data_type}.gif'
-    writergif = animation.PillowWriter(fps=20)
+    writergif = animation.PillowWriter(fps=5)
     anim.save(f, writer=writergif)
