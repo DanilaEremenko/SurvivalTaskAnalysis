@@ -11,7 +11,7 @@ from sksurv.ensemble import RandomSurvivalForest
 from sksurv.util import Surv
 
 from experiments_config import EXP_PATH
-from lib.custom_survival_funcs import add_events_to_df, get_event_time_manual
+from lib.custom_survival_funcs import add_events_to_df, get_event_time_last_right, get_event_time_math_exp
 from lib.drawing import get_random_color
 
 font = {'family': 'Times New Roman',
@@ -175,8 +175,8 @@ if __name__ == '__main__':
         x = rsf.event_times_ / 3600
         y = curr_pred
         y_true = y_test_src_df_sel.iloc[pred_i]['ElapsedRaw'] / 3600
-        y_math_exp = (y * rsf.event_times_).mean() / 3600
-        y_min_prob = get_event_time_manual(event_times=rsf.event_times_, probs=np.expand_dims(y, 0))[0] / 3600
+        y_et_math_exp = get_event_time_math_exp(event_times=rsf.event_times_, probs=y) / 3600
+        y_et_min_prob = get_event_time_last_right(event_times=rsf.event_times_, probs=y) / 3600
         label = f"Фактическое время решения = {y_true:.2f} часов"
         plt.step(x, y, where="post", label=label, linewidth=4, color=color)[0]
         plt.plot([y_true, y_true], [0, 1], '--', linewidth=2, color=color)

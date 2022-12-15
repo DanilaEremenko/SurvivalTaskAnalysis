@@ -8,26 +8,33 @@ from sksurv.ensemble import RandomSurvivalForest
 
 
 @njit
-def get_event_time_manual(event_times: np.ndarray, probs: np.ndarray) -> List[float]:
-    res_arr = []
-    for i, curr_probs in enumerate(probs):
-        min_prob = curr_probs.min()
-        for et, prob in zip(event_times, curr_probs):
-            if prob == min_prob:
-                res_arr.append(et)
-                break
-        # if len(res_arr) != i + 1:
-        #     raise Exception('No prob < 0.1 in prob vector')
-    return res_arr
+def get_event_time_last_right(event_times: np.ndarray, probs: np.ndarray) -> float:
+    min_prob = probs.min()
+    for et, prob in zip(event_times, probs):
+        if prob == min_prob:
+            return et
 
 
-def batch_surv_time_pred(model: RandomSurvivalForest, X: pd.DataFrame, batch_size=5000) -> np.ndarray:
-    return np.concatenate([
-        get_event_time_manual(
+@njit
+def get_event_time_math_exp(event_times: np.ndarray, probs: np.ndarray) -> float:
+    return (event_times * probs).mean()
+
+
+def batch_surv_time_pred(model: RandomSurvivalForest, X: pd.DataFrame, mode: str, batch_size=5000) -> np.ndarray:
+    if mode == 'last_right':
+        get_event_time_func = get_event_time_last_right
+    elif mode == 'math_exp':
+        get_event_time_func = get_event_time_math_exp
+    else:
+        raise Exception(f'Unexpected mode = {mode}')
+
+    return np.array([
+        get_event_time_func(
             event_times=model.event_times_,
-            probs=model.predict_survival_function(X[start:start + batch_size], return_array=True)
+            probs=probs
         )
         for start in range(0, len(X), 5000)
+        for probs in model.predict_survival_function(X[start:start + batch_size], return_array=True)
     ])
 
 
