@@ -18,7 +18,7 @@ from prepare_clust import print_one_cl_dist
 class ClusteringBasedModel:
     def __init__(self, clust_key: str, cluster_centroids: pd.DataFrame):
         self.clust_key = clust_key
-        self.models_dict: Optional[List[Dict]] = None
+        self.models_dict: Dict[str, Dict] = None
         self._cluster_centroids = cluster_centroids
         self._cluster_centroids_surv = None
         self.norm_dict: Optional[Dict[str, MinMaxScaler]] = None
@@ -100,12 +100,13 @@ class ClusteringBasedModel:
         }
 
         self._cluster_centroids_surv = self._cluster_centroids.copy()
-        for i, cl in self._cluster_centroids_surv[['cl']].iterrows():
+        for i, (id, cl) in enumerate(self._cluster_centroids_surv[['cl']].iterrows()):
             cl = int(cl)
-            self._cluster_centroids_surv.loc[i, 'ElapsedRaw'] = batch_surv_time_pred(
+            self._cluster_centroids_surv.loc[id, 'ElapsedRaw'] = batch_surv_time_pred(
                 self.models_dict[cl]['model'],
-                self._cluster_centroids[f_keys]
-            )[cl]
+                self._cluster_centroids[f_keys],
+                mode='math_exp'
+            )[i]
 
         return self
 
@@ -127,45 +128,86 @@ class ClusteringBasedModel:
             raise Exception("Trying to call predict without fitting")
 
         f_keys = [key for key in X.keys() if 'cl_l' not in key]
-        y_pred_all = np.array([batch_surv_time_pred(model_dict['model'], X[f_keys])
+        y_pred_all = np.array([batch_surv_time_pred(model_dict['model'], X[f_keys], mode='math_exp')
                                for model_dict in self.models_dict.values()])
         y_avg = y_pred_all.mean(axis=0)
 
         # return y_avg
 
         X_norm_and_extended = X.copy()
-        X_norm_and_extended['ElapsedRaw'] = y_avg
+        X_norm_and_extended['ElapsedMean'] = y_avg
+
         for key, norm in self.norm_dict.items():
             X_norm_and_extended[key] = self.normalize_series(X_norm_and_extended[key], norm)
+
+        id_to_cluster_noavg = []
+        for models_y, (pt_id, pt_features) in zip(y_pred_all.swapaxes(0, 1), X_norm_and_extended[[*f_keys]].iterrows()):
+            cl_distances = [
+                {
+                    'model_key': model_key,
+                    'cent_id': cent_id,
+                    'dist': weighted_dist_numba(
+                        p1=np.array([*list(pt_features[f_keys]), model_y]),
+                        p2=cent_pt[[*f_keys, 'ElapsedRaw']].to_numpy()
+                    )
+                }
+                for cent_i, (cent_id, cent_pt) in enumerate(self.cluster_centroids_dist.iterrows())
+                for model_key, model_y in zip(self.models_dict.keys(), models_y)
+            ]
+            cl_distances = pd.DataFrame(cl_distances)
+            cl_similarity_sorted = cl_distances.groupby('cent_id').mean()[['dist']].sort_values('dist', ascending=True)
+            id_to_cluster_noavg.append(
+                {
+                    'pt_id': pt_id,
+                    'cl': cl_similarity_sorted.index[0]
+                }
+            )
+        id_to_cluster_noavg_df = pd.DataFrame(id_to_cluster_noavg).set_index('pt_id')
 
         print('calulating id to cluster')
         id_to_cluster_df = pd.DataFrame([
             {
-                'id': i,
+                'pt_id': pt_id,
                 'cl': self.get_closest_cluster(pt_coord=pt_features.to_numpy(), f_keys=f_keys)
             }
-            for i, pt_features in X_norm_and_extended[[*f_keys, 'ElapsedRaw']].iterrows()]
-        ).set_index('id')
+            for pt_id, pt_features in X_norm_and_extended[[*f_keys, 'ElapsedMean']].iterrows()]
+        ).set_index('pt_id')
         id_to_cluster_df['y_pred'] = -1
+        id_to_cluster_df['y_pred_noavg'] = -1
+
         print('each model predicting')
         for model_cluster, model_dict in self.models_dict.items():
             model = model_dict['model']
             model_indexes = id_to_cluster_df[id_to_cluster_df['cl'] == model_cluster].index
+            model_indexes_noavg = id_to_cluster_noavg_df[id_to_cluster_noavg_df['cl'] == model_cluster].index
+
             if len(model_indexes) == 0:
                 continue
 
-            model_X = X.loc[model_indexes, f_keys]
-            id_to_cluster_df.loc[model_indexes, 'y_pred'] = batch_surv_time_pred(model, model_X)
+            id_to_cluster_df.loc[model_indexes, 'y_pred'] = batch_surv_time_pred(
+                model,
+                X.loc[model_indexes, f_keys],
+                mode='math_exp'
+            )
+            id_to_cluster_df.loc[model_indexes_noavg, 'y_pred_noavg'] = batch_surv_time_pred(
+                model,
+                X.loc[model_indexes_noavg, f_keys],
+                mode='math_exp'
+            )
 
         y_selected = np.array(id_to_cluster_df['y_pred'])
-        assert -1 not in y_selected
+        y_selected_no_avg = np.array(id_to_cluster_df['y_pred_noavg'])
 
-        self._debug_arr = np.column_stack((*[y_pred_model for i, y_pred_model in enumerate(y_pred_all)],
-                                           y_avg, y_selected, get_t_from_y(y_test),
-                                           id_to_cluster_df['cl']))
-        self._debug_df = pd.DataFrame({**{f'y_cl{i}': y_pred_model
-                                          for i, y_pred_model in enumerate(y_pred_all)},
-                                       'y_avg': y_avg, 'y_selected': y_selected, 'y_true': get_t_from_y(y_test),
+        assert -1 not in y_selected
+        assert -1 not in y_selected_no_avg
+
+        # self._debug_arr = np.column_stack((*[y_pred_model for i, y_pred_model in enumerate(y_pred_all)],
+        #                                    y_avg, y_selected, get_t_from_y(y_test),
+        #                                    id_to_cluster_df['cl']))
+        self._debug_df = pd.DataFrame({**{f'y_cl{i}': y_pred_model for i, y_pred_model in enumerate(y_pred_all)},
+                                       'y_avg': y_avg, 'y_selected': y_selected,
+                                       'y_selected_noavg': y_selected_no_avg,
+                                       'y_true': get_t_from_y(y_test),
                                        **{f'y_cl{i}_resid': y_pred_model - get_t_from_y(y_test)
                                           for i, y_pred_model in enumerate(y_pred_all)},
                                        'cl': id_to_cluster_df['cl']})

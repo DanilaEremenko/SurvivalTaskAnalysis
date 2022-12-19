@@ -105,7 +105,5 @@ if __name__ == '__main__':
         y_pred = pd.DataFrame({'y_pred': y_pred})
         y_pred.to_csv(f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}_{CL_CENTROIDS_DIST_MODE}.csv',
                       index=False)
-        model._debug_arr.to_csv(f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}_{CL_CENTROIDS_DIST_MODE}_detailed.csv',
-                                index=False)
     else:
         raise Exception(f"Unexpected MODELS_MODE = {MODELS_MODE}")

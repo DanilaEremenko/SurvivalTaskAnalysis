@@ -13,9 +13,9 @@ from sklearn.metrics import r2_score
 from sklearn.model_selection import ParameterGrid, cross_val_score, KFold
 from sksurv.ensemble import RandomSurvivalForest
 
-from experiments_config import EXP_PATH, CL_MODE, CL_DIR
+from experiments_config import EXP_PATH, CL_MODE, CL_DIR, CL_CENTROIDS_DIST_MODE
 from lib.custom_models import ClusteringBasedModel
-from lib.custom_survival_funcs import get_event_time_manual, batch_surv_time_pred, batch_risk_score_pred, \
+from lib.custom_survival_funcs import get_event_time_last_right, batch_surv_time_pred, batch_risk_score_pred, \
     get_t_from_y
 from lib.losses import Losses
 
@@ -189,6 +189,13 @@ def build_scenarios(
             start_time = time.time()
             model.fit(X=x_train, y=y_train)
             y_test_pred = model.predict(X=x_test, y_test=y_test)
+            model._debug_df.to_csv(
+                f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}_{CL_CENTROIDS_DIST_MODE}_lvl={cl_lvl}_debug.csv',
+                index=False
+            )
+            model._debug_df.corr().to_csv(
+                f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}_{CL_CENTROIDS_DIST_MODE}_lvl={cl_lvl}_debug_corr.csv'
+            )
 
             kf = KFold(n_splits=5, shuffle=False)
             cv_score = []
@@ -198,7 +205,7 @@ def build_scenarios(
                 cv_score.append(
                     r2_score(
                         y_true=get_t_from_y(y_train[cv_test_index]),
-                        y_pred=model.predict(x_train.iloc[cv_test_index],y_test=y_train[cv_test_index])
+                        y_pred=model.predict(x_train.iloc[cv_test_index], y_test=y_train[cv_test_index])
                     )
                 )
             cv_score = np.array(cv_score)
