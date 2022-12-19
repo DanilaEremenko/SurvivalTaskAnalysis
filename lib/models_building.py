@@ -15,6 +15,7 @@ from sksurv.ensemble import RandomSurvivalForest
 
 from experiments_config import EXP_PATH, CL_MODE, CL_DIR, CL_CENTROIDS_DIST_MODE
 from lib.custom_models import ClusteringBasedModel
+from lib.custom_reg import assym_obj_fn, assym_valid_fn
 from lib.custom_survival_funcs import get_event_time_last_right, batch_surv_time_pred, batch_risk_score_pred, \
     get_t_from_y
 from lib.losses import Losses
@@ -36,22 +37,6 @@ def get_reg_predictions_and_metrics_df(model, X, y) -> pd.DataFrame:
     res_test_df['mae'] = res_test_df['residual'].abs()
     res_test_df['mae perc'] = res_test_df['residual perc'].abs()
     return res_test_df
-
-
-ASSYM_COEF = 10.
-
-
-def assym_obj_fn(y_true, y_pred):
-    residual = (y_true - y_pred).astype("float")
-    grad = np.where(residual > 0, -2.0 * ASSYM_COEF * residual, -2.0 * residual)
-    hess = np.where(residual > 0, 2.0 * ASSYM_COEF, 2.0)
-    return grad, hess
-
-
-def assym_valid_fn(y_true, y_pred):
-    residual = (y_true - y_pred).astype("float")
-    loss = np.where(residual > 0, (residual ** 2.0) * ASSYM_COEF, residual ** 2.0)
-    return "custom_asymmetric_eval", np.mean(loss), False
 
 
 def build_scenarios(
@@ -132,7 +117,7 @@ def build_scenarios(
 
         common_args = {'n_estimators': [len(x_train) // ex_in_trees for ex_in_trees in (500, 1000)],
                        'bootstrap': [True], 'max_features': [1.0],
-                       'max_samples': [500], 'random_state': [42]}
+                       'max_samples': [500, 1000, 2000], 'random_state': [42]}
         params_grid = [
             # {'max_depth': [2, 4, 8], **common_args},
             # {'min_samples_leaf': [2, 4, 8], **common_args},
@@ -149,7 +134,7 @@ def build_scenarios(
 
             print('testing')
             start_time = time.time()
-            y_test_pred_time = batch_surv_time_pred(model=model, X=x_test)
+            y_test_pred_time = batch_surv_time_pred(model=model, X=x_test, mode='math_exp')
             time_calc = time.time() - start_time
 
             kf = KFold(n_splits=5, shuffle=False)
@@ -160,7 +145,7 @@ def build_scenarios(
                 cv_score.append(
                     r2_score(
                         y_true=get_t_from_y(y_train[cv_test_index]),
-                        y_pred=batch_surv_time_pred(model=model, X=x_train.iloc[cv_test_index])
+                        y_pred=batch_surv_time_pred(model=model, X=x_train.iloc[cv_test_index], mode='math_exp')
                     )
                 )
             cv_score = np.array(cv_score)
@@ -176,7 +161,7 @@ def build_scenarios(
             )
 
     elif method == 'cb':
-        for cl_lvl in [1, 2, 3]:
+        for cl_lvl in [1, 2, 3, 4]:
             print(f'fitting on cl_lvl = {cl_lvl}')
             model = ClusteringBasedModel(
                 clust_key=f'cl_l{cl_lvl}',
@@ -192,9 +177,6 @@ def build_scenarios(
             model._debug_df.to_csv(
                 f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}_{CL_CENTROIDS_DIST_MODE}_lvl={cl_lvl}_debug.csv',
                 index=False
-            )
-            model._debug_df.corr().to_csv(
-                f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}_{CL_CENTROIDS_DIST_MODE}_lvl={cl_lvl}_debug_corr.csv'
             )
 
             kf = KFold(n_splits=5, shuffle=False)
