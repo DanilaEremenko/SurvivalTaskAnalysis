@@ -96,7 +96,7 @@ if __name__ == '__main__':
         model = ClusteringBasedModel(
             clust_key=f'cl_l{cl_l}',
             cluster_centroids=pd.read_csv(
-                f'{EXP_PATH}/clustering_{CL_MODE}_{CL_DIR}_{CL_REG_MODEL}/train_centroids_l{cl_l}.csv',
+                f'{EXP_PATH}/clustering_{CL_MODE}_{CL_DIR}/train_centroids_l{cl_l}.csv',
                 index_col=0
             )
         )
