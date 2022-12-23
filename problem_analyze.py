@@ -1,6 +1,6 @@
 import pandas as pd
 
-from experiments_config import EXP_PATH, CL_DIR, CL_MODE
+from experiments_config import EXP_PATH, CL_DIR, CL_MODE, CL_CENTROIDS_DIST_MODE
 from lib.drawing import draw_corr_sns, draw_df_as_image
 from lib.time_ranges import get_time_range_symb, TIME_RANGES
 import matplotlib
@@ -31,9 +31,14 @@ compared_models = [
         'pred_path': f'{EXP_PATH}/y_pred_surv.csv'
     },
     {
-        'model_name': 'cl+reg rf',
-        'pred_path': f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}.csv'
+        'model_name': 'cl + rf + surv rf',
+        'pred_path': f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}_{CL_CENTROIDS_DIST_MODE}_rf.csv'
+    },
+    {
+        'model_name': 'cl + lgbm + surv rf',
+        'pred_path': f'{EXP_PATH}/y_pred_cl_{CL_MODE}_{CL_DIR}_{CL_CENTROIDS_DIST_MODE}_lgbm.csv'
     }
+
 ]
 
 src_df = pd.read_csv(f'{EXP_PATH}/test.csv')
@@ -85,6 +90,17 @@ for gt_limit in src_df['time_elapsed_range'].unique():
         confusion_df.append(curr_dict)
 
 confusion_matrixes = {key: val.astype(float) for key, val in confusion_matrixes.items()}
+# confusion_matrixes['ideal'] = list(confusion_matrixes.values())[0]
+# for key1 in confusion_matrixes['ideal'].index:
+#     for key2 in confusion_matrixes['ideal'].index:
+#         if key1 == key2:
+#             confusion_matrixes['ideal'].loc[key1, key2] = 0.8
+#         elif int(key1[0]) + 1 == int(key2[0]):
+#             confusion_matrixes['ideal'].loc[key1, key2] = 0.15
+#         elif int(key1[0]) + 2 == int(key2[0]):
+#             confusion_matrixes['ideal'].loc[key1, key2] = 0.05
+#         else:
+#             confusion_matrixes['ideal'].loc[key1, key2] = 0.0
 confusion_df = pd.DataFrame(confusion_df).sort_values(['y_true', 'y_predicted'], ascending=False)
 
 for model_key, matrix_df in confusion_matrixes.items():
