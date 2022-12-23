@@ -113,7 +113,7 @@ if __name__ == '__main__':
         rsf.fit(X=x_train, y=y_train)
         y_pred = pd.DataFrame(
             {
-                'y_pred': batch_surv_time_pred(model=rsf, X=x_test)
+                'y_pred': batch_surv_time_pred(model=rsf, X=x_test,mode='math_exp')
             }
         )
         y_pred.to_csv(f'{EXP_PATH}/y_pred_surv.csv', index=False)
