@@ -51,3 +51,6 @@ CL_DIR = 'flat'
 
 # CL_CENTROIDS_DIST_MODE = 'orig(y)'
 CL_CENTROIDS_DIST_MODE = 'y_pred(y)'
+
+# CL_REG_MODEL = 'lgbm'
+CL_REG_MODEL = 'rf'

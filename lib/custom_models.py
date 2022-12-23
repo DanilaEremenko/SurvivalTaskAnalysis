@@ -9,7 +9,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import MinMaxScaler
 from sksurv.ensemble import RandomSurvivalForest
 
-from experiments_config import CL_MODE, CL_CENTROIDS_DIST_MODE
+from experiments_config import CL_MODE, CL_CENTROIDS_DIST_MODE, CL_REG_MODEL
 from lib.custom_reg import assym_obj_fn, assym_valid_fn
 from lib.custom_survival_funcs import batch_surv_time_pred, get_t_from_y
 from lib.kmeans_lu import fast_dist, weighted_dist_numba
@@ -78,6 +78,17 @@ class ClusteringBasedModel:
         else:
             return s
 
+    def fit_regressor(self, X: np.ndarray, y: np.ndarray):
+        if CL_REG_MODEL == 'lgbm':
+            self.regressor = LGBMRegressor(max_depth=10, min_child_samples=2, n_estimators=27, random_state=42)
+            self.regressor.set_params(objective=assym_obj_fn)
+            self.regressor.fit(X=X, y=y, eval_metric=assym_valid_fn)
+        elif CL_REG_MODEL == 'rf':
+            self.regressor = RandomForestRegressor(max_depth=10, min_samples_leaf=2, n_estimators=27, random_state=42)
+            self.regressor.fit(X=X, y=y)
+        else:
+            raise Exception(f"Unexpected CL_REG_MODEL = {CL_REG_MODEL}")
+
     def fit(self, X: pd.DataFrame, y: np.ndarray):
         f_keys = [key for key in X.keys() if 'cl_l' not in key]
 
@@ -102,9 +113,7 @@ class ClusteringBasedModel:
             for clust_val in self._cluster_centroids['cl']
         }
 
-        self.regressor = LGBMRegressor(max_depth=10, min_child_samples=2, n_estimators=27, random_state=42)
-        self.regressor.set_params(objective=assym_obj_fn)
-        self.regressor.fit(X=X[f_keys].to_numpy(), y=get_t_from_y(y), eval_metric=assym_valid_fn)
+        self.fit_regressor(X=X[f_keys].to_numpy(), y=get_t_from_y(y))
 
         self._cluster_centroids_surv = self._cluster_centroids.copy()
         for i, (id, cl) in enumerate(self._cluster_centroids_surv[['cl']].iterrows()):
